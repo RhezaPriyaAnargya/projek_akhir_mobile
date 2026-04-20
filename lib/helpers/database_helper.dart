@@ -21,7 +21,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'solotrek_local.db');
     return await openDatabase(
       path,
-      version: 2, // Naikkan versi karena kita mengubah struktur tabel
+      version: 3, // Naikkan versi menjadi 3 untuk membuat tabel plans
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -45,10 +45,23 @@ class DatabaseHelper {
         is_logged_in INTEGER DEFAULT 1 -- 1: Aktif, 0: Logout
       )
     ''');
+
+    // Menambahkan tabel plans (Itinerary)
+    await db.execute('''
+      CREATE TABLE plans(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        title TEXT,
+        date TEXT,
+        location TEXT,
+        details TEXT
+      )
+    ''');
   }
 
   // Jika aplikasi di-update, hapus tabel lama dan buat baru
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    await db.execute('DROP TABLE IF EXISTS plans'); // Hapus plans jika ada
     await db.execute('DROP TABLE IF EXISTS sessions');
     await db.execute('DROP TABLE IF EXISTS users');
     await _onCreate(db, newVersion);
@@ -142,5 +155,48 @@ class DatabaseHelper {
   Future<int> clearSession() async {
     final db = await database;
     return await db.update('sessions', {'is_logged_in': 0});
+  }
+
+  // ==========================================
+  // --- CRUD PLANS (RENCANA PERJALANAN) ---
+  // ==========================================
+
+  // Simpan Rencana Baru
+  Future<int> insertPlan(Map<String, dynamic> plan) async {
+    final db = await database;
+    return await db.insert('plans', plan);
+  }
+
+  // Ambil Semua Rencana Milik User yang Sedang Login
+  Future<List<Map<String, dynamic>>> getPlans() async {
+    final db = await database;
+    final session = await getCurrentSession();
+    
+    // Jika tidak ada user yang login, kembalikan list kosong
+    if (session == null) return [];
+    
+    return await db.query(
+      'plans', 
+      where: 'user_id = ?', 
+      whereArgs: [session['user_id']],
+      orderBy: 'id DESC' // Urutkan dari yang terbaru
+    );
+  }
+
+  // Hapus Rencana
+  Future<int> deletePlan(int id) async {
+    final db = await database;
+    return await db.delete('plans', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // Update Rencana (Edit)
+  Future<int> updatePlan(Map<String, dynamic> plan) async {
+    final db = await database;
+    return await db.update(
+      'plans',
+      plan,
+      where: 'id = ?',
+      whereArgs: [plan['id']], // Cari berdasarkan ID
+    );
   }
 }

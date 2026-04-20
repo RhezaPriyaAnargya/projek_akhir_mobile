@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'profile_screen.dart'; // Import halaman profil yang sudah dibuat
+import 'profile_screen.dart'; 
+import 'add_plan_screen.dart'; 
+import '../helpers/database_helper.dart'; 
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -11,12 +13,11 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
-  // Daftar halaman yang akan ditampilkan sesuai index tab
   static final List<Widget> _pages = <Widget>[
-    const HomeView(),      // Tab 1: Dashboard
-    const ConverterView(), // Tab 2: Konversi (Uang & Waktu)
-    const FeedbackView(),  // Tab 3: Saran & Kesan
-    const ProfileScreen(), // Tab 4: Profil & Logout
+    const HomeView(),      
+    const ConverterView(), 
+    const FeedbackView(),  
+    const ProfileScreen(), 
   ];
 
   void _onItemTapped(int index) {
@@ -33,7 +34,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: _pages,
       ),
       bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed, // Agar label terlihat semua
+        type: BottomNavigationBarType.fixed, 
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.blueAccent,
         unselectedItemColor: Colors.grey,
@@ -49,19 +50,302 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// --- TAB 1: DASHBOARD VIEW (PLACEHOLDER) ---
-class HomeView extends StatelessWidget {
+// ============================================================================
+// --- TAB 1: DASHBOARD VIEW (BERANDA UTAMA) ---
+// ============================================================================
+class HomeView extends StatefulWidget {
   const HomeView({super.key});
+
+  @override
+  State<HomeView> createState() => _HomeViewState();
+}
+
+class _HomeViewState extends State<HomeView> {
+  final DatabaseHelper _dbHelper = DatabaseHelper();
+  List<Map<String, dynamic>> _plans = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshPlans(); // Ambil data saat halaman pertama kali dibuka
+  }
+
+  // Fungsi untuk mengambil data rencana dari SQLite
+  Future<void> _refreshPlans() async {
+    final data = await _dbHelper.getPlans();
+    setState(() {
+      _plans = data;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('SoloTrek Beranda')),
-      body: const Center(child: Text('Halaman Utama Travel Planner')),
+      backgroundColor: Colors.grey.shade50,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'SoloTrek',
+          style: TextStyle(
+            color: Colors.blueAccent,
+            fontWeight: FontWeight.bold,
+            fontSize: 24,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_none, color: Colors.blueAccent),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Belum ada notifikasi baru.')),
+              );
+            },
+          )
+        ],
+      ),
+      
+      // Floating Action Button
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.blueAccent,
+        elevation: 4,
+        onPressed: () async {
+          // Buka halaman tambah rencana dan tunggu hasilnya
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AddPlanScreen()),
+          );
+          
+          // Jika hasilnya 'true' (berhasil simpan), muat ulang daftar
+          if (result == true) {
+            _refreshPlans();
+          }
+        },
+        child: const Icon(Icons.add, color: Colors.white, size: 28),
+      ),
+      
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildGreetingAndWeather(),
+            const SizedBox(height: 24),
+            _buildAIBanner(),
+            const SizedBox(height: 24),
+            _buildMapPlaceholder(),
+            const SizedBox(height: 24),
+            _buildMyPlansList(), // Daftar yang sudah dinamis
+            const SizedBox(height: 80), 
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- WIDGET 1: SAPAAN & CUACA ---
+  Widget _buildGreetingAndWeather() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Halo, Rheza!', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            Text('Siap menjelajah hari ini?', style: TextStyle(color: Colors.grey, fontSize: 14)),
+          ],
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(12)),
+          child: const Row(
+            children: [
+              Icon(Icons.wb_sunny, color: Colors.orange, size: 20),
+              SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Yogyakarta', style: TextStyle(fontSize: 10, color: Colors.blueAccent)),
+                  Text('28°C Cerah', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // --- WIDGET 2: BANNER TREKKER AI ---
+  Widget _buildAIBanner() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [Colors.blueAccent, Colors.lightBlue], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.blueAccent.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))],
+      ),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Trekker AI Assistant', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                SizedBox(height: 8),
+                Text('Biar AI yang merancang jadwal liburanmu secara otomatis.', style: TextStyle(color: Colors.white70, fontSize: 14)),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: const BoxDecoration(color: Colors.white24, shape: BoxShape.circle),
+            child: const Icon(Icons.auto_awesome, color: Colors.white, size: 32),
+          )
+        ],
+      ),
+    );
+  }
+
+  // --- WIDGET 3: LBS MAP PLACEHOLDER ---
+  Widget _buildMapPlaceholder() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Lokasi Saat Ini', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        Container(
+          height: 150, width: double.infinity,
+          decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade400)),
+          child: const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.map, size: 40, color: Colors.grey),
+                SizedBox(height: 8),
+                Text('(Integrasi Google Maps API di sini)', style: TextStyle(color: Colors.grey)),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // --- WIDGET 4: DAFTAR RENCANA (DINAMIS DARI SQLITE) ---
+  Widget _buildMyPlansList() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Rencana Perjalanan Saya', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Icon(Icons.search, color: Colors.grey), 
+          ],
+        ),
+        const SizedBox(height: 12),
+        
+        // Pengecekan: Jika database kosong, tampilkan pesan. Jika ada, tampilkan list
+        _plans.isEmpty 
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Text(
+                  'Belum ada rencana perjalanan.\nKetuk tombol + untuk mulai!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey.shade600),
+                ),
+              ),
+            )
+          : ListView.builder(
+              shrinkWrap: true, 
+              physics: const NeverScrollableScrollPhysics(), 
+              itemCount: _plans.length,
+              itemBuilder: (context, index) {
+                final plan = _plans[index];
+                return _buildTripCard(plan); // Cukup kirimkan objek 'plan' utuh
+              },
+            ),
+      ],
+    );
+  }
+
+  // Desain Kartu dengan Tombol Edit & Delete
+  Widget _buildTripCard(Map<String, dynamic> plan) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 5, offset: const Offset(0, 3))],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(12)),
+            child: const Icon(Icons.flight_takeoff, color: Colors.blueAccent),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(plan['title'], style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(plan['date'], style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                const SizedBox(height: 4),
+                Text(plan['location'], style: const TextStyle(color: Colors.blueAccent, fontSize: 13, fontWeight: FontWeight.w500)),
+              ],
+            ),
+          ),
+          
+          // --- KUMPULAN TOMBOL AKSI (EDIT & DELETE) ---
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 1. Tombol Edit (Pensil)
+              IconButton(
+                icon: const Icon(Icons.edit, color: Colors.orangeAccent),
+                onPressed: () async {
+                  // Buka halaman AddPlanScreen, tapi kirimkan data 'plan' saat ini
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => AddPlanScreen(plan: plan)),
+                  );
+                  // Jika berhasil update (kembali bawa nilai true), refresh list
+                  if (result == true) {
+                    _refreshPlans();
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rencana berhasil diupdate!'), backgroundColor: Colors.green));
+                    }
+                  }
+                },
+              ),
+              // 2. Tombol Hapus (Tempat Sampah)
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                onPressed: () async {
+                  await _dbHelper.deletePlan(plan['id']);
+                  _refreshPlans(); 
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rencana dihapus')));
+                  }
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
 
-// --- TAB 2: CONVERTER VIEW (MATA UANG & WAKTU) ---
+// ============================================================================
+// --- TAB 2: CONVERTER VIEW ---
+// ============================================================================
 class ConverterView extends StatelessWidget {
   const ConverterView({super.key});
   @override
@@ -73,7 +357,9 @@ class ConverterView extends StatelessWidget {
   }
 }
 
-// --- TAB 3: FEEDBACK VIEW (SARAN & KESAN TPM) ---
+// ============================================================================
+// --- TAB 3: FEEDBACK VIEW ---
+// ============================================================================
 class FeedbackView extends StatelessWidget {
   const FeedbackView({super.key});
   @override
