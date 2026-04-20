@@ -142,7 +142,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 const Text('Smart Travel Planner', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.grey)),
                 const SizedBox(height: 60),
 
-                // Gunakan TextFormField
                 TextFormField(
                   controller: _usernameController,
                   decoration: InputDecoration(
