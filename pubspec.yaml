@@ -30,6 +30,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # biometrik
+  local_auth: ^2.1.8
+  # Untuk SQLite
+  sqflite: ^2.3.0
+  path: ^1.8.3
+  crypto: ^3.0.3
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
