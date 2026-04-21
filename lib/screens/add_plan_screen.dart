@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import '../helpers/database_helper.dart';
 
 class AddPlanScreen extends StatefulWidget {
-  final Map<String, dynamic>? plan; // Tambahan: Untuk menerima data yang mau diedit
+  final Map<String, dynamic>?
+  plan; // Tambahan: Untuk menerima data yang mau diedit
 
   const AddPlanScreen({super.key, this.plan});
 
@@ -13,12 +14,23 @@ class AddPlanScreen extends StatefulWidget {
 class _AddPlanScreenState extends State<AddPlanScreen> {
   final _titleController = TextEditingController();
   final _dateController = TextEditingController();
+  final _locationController = TextEditingController();
   final _detailsController = TextEditingController();
   final _dbHelper = DatabaseHelper();
 
   final List<String> _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 
-    'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'Mei',
+    'Jun',
+    'Jul',
+    'Ags',
+    'Sep',
+    'Okt',
+    'Nov',
+    'Des',
   ];
 
   @override
@@ -28,16 +40,17 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
     if (widget.plan != null) {
       _titleController.text = widget.plan!['title'];
       _dateController.text = widget.plan!['date'];
+      _locationController.text = widget.plan!['location'];
       _detailsController.text = widget.plan!['details'];
     }
   }
 
   Future<void> _selectDateRange(BuildContext context) async {
-    FocusScope.of(context).unfocus(); 
+    FocusScope.of(context).unfocus();
 
     final DateTimeRange? picked = await showDateRangePicker(
       context: context,
-      firstDate: DateTime.now(), 
+      firstDate: DateTime.now(),
       lastDate: DateTime(DateTime.now().year + 5),
       helpText: 'Pilih Tanggal Liburan',
       cancelText: 'Batal',
@@ -47,9 +60,9 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Colors.blueAccent, 
-              onPrimary: Colors.white, 
-              onSurface: Colors.black87, 
+              primary: Colors.blueAccent,
+              onPrimary: Colors.white,
+              onSurface: Colors.black87,
             ),
           ),
           child: child!,
@@ -63,9 +76,9 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
 
       setState(() {
         if (start == end) {
-          _dateController.text = start; 
+          _dateController.text = start;
         } else {
-          _dateController.text = "$start - $end"; 
+          _dateController.text = "$start - $end";
         }
       });
     }
@@ -74,7 +87,21 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
   void _savePlan() async {
     if (_titleController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Judul Trip tidak boleh kosong!'), backgroundColor: Colors.redAccent),
+        const SnackBar(
+          content: Text('Judul Trip tidak boleh kosong!'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    if (_locationController.text.trim().isEmpty) {
+      // ← TAMBAH VALIDASI LOKASI
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Lokasi tidak boleh kosong!'),
+          backgroundColor: Colors.redAccent,
+        ),
       );
       return;
     }
@@ -86,22 +113,25 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
         await _dbHelper.insertPlan({
           'user_id': session['user_id'],
           'title': _titleController.text,
-          'date': _dateController.text.isEmpty ? 'Tanggal belum ditentukan' : _dateController.text,
-          'location': 'Yogyakarta',
+          'date': _dateController.text.isEmpty
+              ? 'Tanggal belum ditentukan'
+              : _dateController.text,
+          'location': _locationController.text,
           'details': _detailsController.text,
         });
       } else {
         // MODE EDIT (UPDATE)
         await _dbHelper.updatePlan({
-          'id': widget.plan!['id'], // Ingat bawa ID-nya agar SQLite tahu mana yang diubah
+          'id': widget
+              .plan!['id'], // Ingat bawa ID-nya agar SQLite tahu mana yang diubah
           'user_id': session['user_id'],
           'title': _titleController.text,
           'date': _dateController.text,
-          'location': widget.plan!['location'], // Pertahankan lokasi yang lama
+          'location': _locationController.text, // Pertahankan lokasi yang lama
           'details': _detailsController.text,
         });
       }
-      if (mounted) Navigator.pop(context, true); 
+      if (mounted) Navigator.pop(context, true);
     }
   }
 
@@ -113,7 +143,10 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text(isEditMode ? 'Edit Rencana' : 'Buat Rencana Baru', style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          isEditMode ? 'Edit Rencana' : 'Buat Rencana Baru',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.white,
         foregroundColor: Colors.blueAccent,
         elevation: 0,
@@ -122,77 +155,129 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch, 
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               TextField(
                 controller: _titleController,
                 decoration: InputDecoration(
                   labelText: 'Judul Trip',
                   hintText: 'Cth: Liburan Musim Panas',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   prefixIcon: const Icon(Icons.flight),
                 ),
               ),
               const SizedBox(height: 20),
-              
+
               TextField(
                 controller: _dateController,
-                readOnly: true, 
-                onTap: () => _selectDateRange(context), 
+                readOnly: true,
+                onTap: () => _selectDateRange(context),
                 decoration: InputDecoration(
                   labelText: 'Tanggal Perjalanan',
                   hintText: 'Pilih rentang tanggal...',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  prefixIcon: const Icon(Icons.calendar_today, color: Colors.blueAccent),
-                  suffixIcon: const Icon(Icons.arrow_drop_down), 
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.calendar_today,
+                    color: Colors.blueAccent,
+                  ),
+                  suffixIcon: const Icon(Icons.arrow_drop_down),
                 ),
               ),
               const SizedBox(height: 24),
-              
+              TextField(
+                controller: _locationController,
+                decoration: InputDecoration(
+                  labelText: 'Lokasi Perjalanan',
+                  hintText: 'Cth: Bali, Yogyakarta, Jakarta...',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.location_on_outlined,
+                    color: Colors.redAccent,
+                  ),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.map, color: Colors.blueAccent),
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Integrasi Google Maps akan segera ditambahkan!',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
               ElevatedButton.icon(
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Sabar, integrasi Trekker AI akan segera dipasang!')),
+                    const SnackBar(
+                      content: Text(
+                        'Sabar, integrasi Trekker AI akan segera dipasang!',
+                      ),
+                    ),
                   );
                 },
                 icon: const Icon(Icons.auto_awesome),
-                label: const Text('Isi Detail dengan Trekker AI', style: TextStyle(fontWeight: FontWeight.bold)),
+                label: const Text(
+                  'Isi Detail dengan Trekker AI',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue.shade50,
                   foregroundColor: Colors.blueAccent,
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
-              
+
               TextField(
                 controller: _detailsController,
                 maxLines: 5,
                 decoration: InputDecoration(
                   labelText: 'Detail Perjalanan',
-                  alignLabelWithHint: true, 
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  alignLabelWithHint: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
-              
-              const SizedBox(height: 40), 
-              
+
+              const SizedBox(height: 40),
+
               SizedBox(
                 height: 50,
                 child: ElevatedButton(
                   onPressed: _savePlan,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isEditMode ? Colors.green : Colors.blueAccent, // Warna hijau jika Edit
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    backgroundColor: isEditMode
+                        ? Colors.green
+                        : Colors.blueAccent, // Warna hijau jika Edit
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   child: Text(
                     isEditMode ? 'Update Rencana' : 'Simpan Rencana',
-                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-              )
+              ),
             ],
           ),
         ),
