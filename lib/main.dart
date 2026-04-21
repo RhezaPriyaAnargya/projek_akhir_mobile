@@ -6,7 +6,15 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: ".env");  // Load .env file
+  
+  // Load .env file dengan error handling
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    print('⚠️ Warning: .env file not found. Using default values.');
+    // Jika .env tidak ditemukan, lanjutkan tanpa error
+  }
+  
   runApp(const MyApp());
 }
 
