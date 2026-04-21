@@ -5,6 +5,7 @@ import 'weather_detail_screen.dart';
 import 'add_plan_screen.dart'; 
 import '../helpers/database_helper.dart';
 import '../helpers/weather_helper.dart';
+import 'tools.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -398,12 +399,10 @@ class _HomeViewState extends State<HomeView> {
 // ============================================================================
 class ConverterView extends StatelessWidget {
   const ConverterView({super.key});
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Travel Tools')),
-      body: const Center(child: Text('Fitur Konversi Mata Uang & Waktu')),
-    );
+    return const TravelUtilitiesScreen();
   }
 }
 
