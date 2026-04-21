@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'profile_screen.dart'; 
+import 'detail_plan_screen.dart';
 import 'add_plan_screen.dart'; 
 import '../helpers/database_helper.dart'; 
 
@@ -68,11 +69,10 @@ class _HomeViewState extends State<HomeView> {
   @override
   void initState() {
     super.initState();
-    _loadUserData(); // Ambil data pengguna saat halaman pertama kali dibuka
-    _refreshPlans(); // Ambil data saat halaman pertama kali dibuka
+    _loadUserData();
+    _refreshPlans();
   }
 
-  // Fungsi untuk mengambil data rencana dari SQLite
   Future<void> _loadUserData() async {
     final session = await _dbHelper.getCurrentSession();
     if (session != null) {
@@ -116,18 +116,15 @@ class _HomeViewState extends State<HomeView> {
         ],
       ),
       
-      // Floating Action Button
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.blueAccent,
         elevation: 4,
         onPressed: () async {
-          // Buka halaman tambah rencana dan tunggu hasilnya
           final result = await Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const AddPlanScreen()),
           );
           
-          // Jika hasilnya 'true' (berhasil simpan), muat ulang daftar
           if (result == true) {
             _refreshPlans();
           }
@@ -146,7 +143,7 @@ class _HomeViewState extends State<HomeView> {
             const SizedBox(height: 24),
             _buildMapPlaceholder(),
             const SizedBox(height: 24),
-            _buildMyPlansList(), // Daftar yang sudah dinamis
+            _buildMyPlansList(),
             const SizedBox(height: 80), 
           ],
         ),
@@ -154,7 +151,6 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  // --- WIDGET 1: SAPAAN & CUACA ---
   Widget _buildGreetingAndWeather() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -162,8 +158,8 @@ class _HomeViewState extends State<HomeView> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Halo, $_username!', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-            Text('Siap menjelajah hari ini?', style: TextStyle(color: Colors.grey, fontSize: 14)),
+            Text('Halo, $_username!', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            const Text('Siap menjelajah hari ini?', style: TextStyle(color: Colors.grey, fontSize: 14)),
           ],
         ),
         Container(
@@ -187,7 +183,6 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  // --- WIDGET 2: BANNER TREKKER AI ---
   Widget _buildAIBanner() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -218,7 +213,6 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  // --- WIDGET 3: LBS MAP PLACEHOLDER ---
   Widget _buildMapPlaceholder() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -243,7 +237,6 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  // --- WIDGET 4: DAFTAR RENCANA (DINAMIS DARI SQLITE) ---
   Widget _buildMyPlansList() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -257,7 +250,6 @@ class _HomeViewState extends State<HomeView> {
         ),
         const SizedBox(height: 12),
         
-        // Pengecekan: Jika database kosong, tampilkan pesan. Jika ada, tampilkan list
         _plans.isEmpty 
           ? Center(
               child: Padding(
@@ -275,80 +267,56 @@ class _HomeViewState extends State<HomeView> {
               itemCount: _plans.length,
               itemBuilder: (context, index) {
                 final plan = _plans[index];
-                return _buildTripCard(plan); // Cukup kirimkan objek 'plan' utuh
+                return _buildTripCard(plan);
               },
             ),
       ],
     );
   }
 
-  // Desain Kartu dengan Tombol Edit & Delete
   Widget _buildTripCard(Map<String, dynamic> plan) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 5, offset: const Offset(0, 3))],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(12)),
-            child: const Icon(Icons.flight_takeoff, color: Colors.blueAccent),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(plan['title'], style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text(plan['date'], style: const TextStyle(color: Colors.grey, fontSize: 13)),
-                const SizedBox(height: 4),
-                Text(plan['location'], style: const TextStyle(color: Colors.blueAccent, fontSize: 13, fontWeight: FontWeight.w500)),
-              ],
+    return GestureDetector(
+      onTap: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => DetailPlanScreen(plan: plan)),
+        );
+        
+        if (result == true) {
+          _refreshPlans();
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 5, offset: const Offset(0, 3))],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(12)),
+              child: const Icon(Icons.flight_takeoff, color: Colors.blueAccent),
             ),
-          ),
-          
-          // --- KUMPULAN TOMBOL AKSI (EDIT & DELETE) ---
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // 1. Tombol Edit (Pensil)
-              IconButton(
-                icon: const Icon(Icons.edit, color: Colors.orangeAccent),
-                onPressed: () async {
-                  // Buka halaman AddPlanScreen, tapi kirimkan data 'plan' saat ini
-                  final result = await Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => AddPlanScreen(plan: plan)),
-                  );
-                  // Jika berhasil update (kembali bawa nilai true), refresh list
-                  if (result == true) {
-                    _refreshPlans();
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rencana berhasil diupdate!'), backgroundColor: Colors.green));
-                    }
-                  }
-                },
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(plan['title'], style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(plan['date'], style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                  const SizedBox(height: 4),
+                  Text(plan['location'], style: const TextStyle(color: Colors.blueAccent, fontSize: 13, fontWeight: FontWeight.w500)),
+                ],
               ),
-              // 2. Tombol Hapus (Tempat Sampah)
-              IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                onPressed: () async {
-                  await _dbHelper.deletePlan(plan['id']);
-                  _refreshPlans(); 
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rencana dihapus')));
-                  }
-                },
-              ),
-            ],
-          ),
-        ],
+            ),
+            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+          ],
+        ),
       ),
     );
   }

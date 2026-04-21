@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import '../helpers/database_helper.dart';
+import '../helpers/ai_helper.dart';
 
 class AddPlanScreen extends StatefulWidget {
-  final Map<String, dynamic>?
-  plan; // Tambahan: Untuk menerima data yang mau diedit
+  final Map<String, dynamic>? plan;
 
   const AddPlanScreen({super.key, this.plan});
 
@@ -17,32 +17,87 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
   final _locationController = TextEditingController();
   final _detailsController = TextEditingController();
   final _dbHelper = DatabaseHelper();
+  bool _isLoadingAI = false;
+
+  // Error tracking
+  String? _titleError;
+  String? _dateError;
+  String? _locationError;
+  String? _detailsError;
 
   final List<String> _months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'Mei',
-    'Jun',
-    'Jul',
-    'Ags',
-    'Sep',
-    'Okt',
-    'Nov',
-    'Des',
+    'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+    'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des',
   ];
+
+  // Konstanta validasi
+  static const int MAX_TITLE_LENGTH = 100;
+  static const int MAX_LOCATION_LENGTH = 100;
+  static const int MAX_DETAILS_LENGTH = 2000;
 
   @override
   void initState() {
     super.initState();
-    // Jika ada data yang dikirim (Mode Edit), isikan ke dalam kolom input
     if (widget.plan != null) {
       _titleController.text = widget.plan!['title'];
       _dateController.text = widget.plan!['date'];
       _locationController.text = widget.plan!['location'];
-      _detailsController.text = widget.plan!['details'];
+      _detailsController.text = widget.plan!['details'] ?? '';
     }
+
+    // Add listeners untuk real-time validation
+    _titleController.addListener(_validateTitle);
+    _locationController.addListener(_validateLocation);
+    _detailsController.addListener(_validateDetails);
+  }
+
+  void _validateTitle() {
+    setState(() {
+      if (_titleController.text.isEmpty) {
+        _titleError = 'Judul tidak boleh kosong';
+      } else if (_titleController.text.length < 3) {
+        _titleError = 'Judul minimal 3 karakter';
+      } else if (_titleController.text.length > MAX_TITLE_LENGTH) {
+        _titleError = 'Judul maksimal $MAX_TITLE_LENGTH karakter';
+      } else {
+        _titleError = null;
+      }
+    });
+  }
+
+  void _validateLocation() {
+    setState(() {
+      if (_locationController.text.isEmpty) {
+        _locationError = 'Lokasi tidak boleh kosong';
+      } else if (_locationController.text.length < 2) {
+        _locationError = 'Lokasi minimal 2 karakter';
+      } else if (_locationController.text.length > MAX_LOCATION_LENGTH) {
+        _locationError = 'Lokasi maksimal $MAX_LOCATION_LENGTH karakter';
+      } else {
+        _locationError = null;
+      }
+    });
+  }
+
+  void _validateDetails() {
+    setState(() {
+      if (_detailsController.text.length > MAX_DETAILS_LENGTH) {
+        _detailsError = 'Detail maksimal $MAX_DETAILS_LENGTH karakter';
+      } else {
+        _detailsError = null;
+      }
+    });
+  }
+
+  bool _isFormValid() {
+    _validateTitle();
+    _validateLocation();
+    _validateDetails();
+
+    return _titleError == null &&
+        _locationError == null &&
+        _detailsError == null &&
+        _dateController.text.isNotEmpty;
   }
 
   Future<void> _selectDateRange(BuildContext context) async {
@@ -80,64 +135,121 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
         } else {
           _dateController.text = "$start - $end";
         }
+        _dateError = null;
       });
     }
   }
 
-  void _savePlan() async {
-    if (_titleController.text.trim().isEmpty) {
+  Future<void> _generateAIDetails() async {
+    if (_titleController.text.trim().isEmpty ||
+        _dateController.text.trim().isEmpty ||
+        _locationController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Judul Trip tidak boleh kosong!'),
-          backgroundColor: Colors.redAccent,
+          content: Text('Isi Judul, Tanggal, dan Lokasi terlebih dahulu!'),
+          backgroundColor: Colors.orangeAccent,
         ),
       );
       return;
     }
 
-    if (_locationController.text.trim().isEmpty) {
-      // ← TAMBAH VALIDASI LOKASI
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Lokasi tidak boleh kosong!'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-      return;
-    }
+    setState(() {
+      _isLoadingAI = true;
+    });
 
-    final session = await _dbHelper.getCurrentSession();
-    if (session != null) {
-      if (widget.plan == null) {
-        // MODE BUAT BARU (INSERT)
-        await _dbHelper.insertPlan({
-          'user_id': session['user_id'],
-          'title': _titleController.text,
-          'date': _dateController.text.isEmpty
-              ? 'Tanggal belum ditentukan'
-              : _dateController.text,
-          'location': _locationController.text,
-          'details': _detailsController.text,
-        });
-      } else {
-        // MODE EDIT (UPDATE)
-        await _dbHelper.updatePlan({
-          'id': widget
-              .plan!['id'], // Ingat bawa ID-nya agar SQLite tahu mana yang diubah
-          'user_id': session['user_id'],
-          'title': _titleController.text,
-          'date': _dateController.text,
-          'location': _locationController.text, // Pertahankan lokasi yang lama
-          'details': _detailsController.text,
-        });
+    try {
+      final details = await AIHelper.generateTravelDetails(
+        _titleController.text,
+        _dateController.text,
+        _locationController.text,
+      );
+
+      setState(() {
+        _isLoadingAI = false;
+        _detailsController.text = details;
+        _validateDetails();
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Detail berhasil di-generate!'),
+            backgroundColor: Colors.green,
+          ),
+        );
       }
-      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      setState(() {
+        _isLoadingAI = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _savePlan() async {
+    if (!_isFormValid()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Mohon lengkapi semua field dengan benar!'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final session = await _dbHelper.getCurrentSession();
+      if (session != null) {
+        if (widget.plan == null) {
+          await _dbHelper.insertPlan({
+            'user_id': session['user_id'],
+            'title': _titleController.text.trim(),
+            'date': _dateController.text,
+            'location': _locationController.text.trim(),
+            'details': _detailsController.text.trim(),
+          });
+        } else {
+          await _dbHelper.updatePlan({
+            'id': widget.plan!['id'],
+            'user_id': session['user_id'],
+            'title': _titleController.text.trim(),
+            'date': _dateController.text,
+            'location': _locationController.text.trim(),
+            'details': _detailsController.text.trim(),
+          });
+        }
+        if (mounted) Navigator.pop(context, true);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Error: Session tidak ditemukan'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Ubah judul AppBar berdasarkan modenya
     bool isEditMode = widget.plan != null;
 
     return Scaffold(
@@ -157,8 +269,10 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // JUDUL
               TextField(
                 controller: _titleController,
+                maxLength: MAX_TITLE_LENGTH,
                 decoration: InputDecoration(
                   labelText: 'Judul Trip',
                   hintText: 'Cth: Liburan Musim Panas',
@@ -166,10 +280,22 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   prefixIcon: const Icon(Icons.flight),
+                  errorText: _titleError,
+                  errorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.red),
+                  ),
+                  focusedErrorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.red, width: 2),
+                  ),
+                  counterText: '${_titleController.text.length}/$MAX_TITLE_LENGTH',
                 ),
+                onChanged: (_) => _validateTitle(),
               ),
               const SizedBox(height: 20),
 
+              // TANGGAL
               TextField(
                 controller: _dateController,
                 readOnly: true,
@@ -185,11 +311,19 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
                     color: Colors.blueAccent,
                   ),
                   suffixIcon: const Icon(Icons.arrow_drop_down),
+                  errorText: _dateError,
+                  errorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.red),
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
+
+              // LOKASI
               TextField(
                 controller: _locationController,
+                maxLength: MAX_LOCATION_LENGTH,
                 decoration: InputDecoration(
                   labelText: 'Lokasi Perjalanan',
                   hintText: 'Cth: Bali, Yogyakarta, Jakarta...',
@@ -212,27 +346,42 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
                       );
                     },
                   ),
+                  errorText: _locationError,
+                  errorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.red),
+                  ),
+                  focusedErrorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.red, width: 2),
+                  ),
+                  counterText: '${_locationController.text.length}/$MAX_LOCATION_LENGTH',
                 ),
+                onChanged: (_) => _validateLocation(),
               ),
               const SizedBox(height: 24),
+
+              // TOMBOL AI
               ElevatedButton.icon(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Sabar, integrasi Trekker AI akan segera dipasang!',
-                      ),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.auto_awesome),
-                label: const Text(
-                  'Isi Detail dengan Trekker AI',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                onPressed: _isLoadingAI ? null : _generateAIDetails,
+                icon: _isLoadingAI
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.auto_awesome),
+                label: Text(
+                  _isLoadingAI
+                      ? 'Menghasilkan Detail...'
+                      : 'Isi Detail dengan Trekker AI',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue.shade50,
-                  foregroundColor: Colors.blueAccent,
+                  foregroundColor: _isLoadingAI
+                      ? Colors.grey
+                      : Colors.blueAccent,
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
@@ -242,8 +391,10 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
               ),
               const SizedBox(height: 20),
 
+              // DETAIL PERJALANAN
               TextField(
                 controller: _detailsController,
+                maxLength: MAX_DETAILS_LENGTH,
                 maxLines: 5,
                 decoration: InputDecoration(
                   labelText: 'Detail Perjalanan',
@@ -251,19 +402,31 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
+                  errorText: _detailsError,
+                  errorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.red),
+                  ),
+                  focusedErrorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.red, width: 2),
+                  ),
+                  counterText: '${_detailsController.text.length}/$MAX_DETAILS_LENGTH',
                 ),
+                onChanged: (_) => _validateDetails(),
               ),
 
               const SizedBox(height: 40),
 
+              // TOMBOL SIMPAN
               SizedBox(
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: _savePlan,
+                  onPressed: _isFormValid() ? _savePlan : null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isEditMode
-                        ? Colors.green
-                        : Colors.blueAccent, // Warna hijau jika Edit
+                    backgroundColor: _isFormValid()
+                        ? (isEditMode ? Colors.green : Colors.blueAccent)
+                        : Colors.grey,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -277,11 +440,20 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
                     ),
                   ),
                 ),
-              ),
+              )
             ],
           ),
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _dateController.dispose();
+    _locationController.dispose();
+    _detailsController.dispose();
+    super.dispose();
   }
 }
