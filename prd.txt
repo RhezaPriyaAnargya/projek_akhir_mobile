@@ -1,0 +1,102 @@
+
+# 📄 Product Requirements Document (PRD): SoloTrek - Smart Travel Planner
+
+## 1. Ringkasan Proyek & Tech Stack
+* **Nama Aplikasi:** SoloTrek
+* **Deskripsi:** Aplikasi *mobile* perencana perjalanan cerdas untuk tugas akhir mata kuliah Pemrograman Mobile (TPM).
+* **Arsitektur:** Local-First App (Offline Support). Tidak menggunakan Firebase atau Backend Server.
+* **Tech Stack Utama:** Flutter (Dart).
+* **Database Utama:** SQLite (`sqflite`).
+* **State Management:** Dasar (StatefulWidget & setState).
+* **Library Tambahan yang Wajib Digunakan:** `local_auth` (Biometrik), `crypto` (Enkripsi SHA-256), `Maps_flutter` (LBS), `http` (Integrasi API/LLM).
+
+---
+
+## 2. Struktur Database (SQLite)
+Aplikasi harus menggunakan 3 tabel dengan relasi dan struktur berikut (Skema Database Versi 3):
+1.  **Tabel `users`**:
+    * `id` (INTEGER PRIMARY KEY AUTOINCREMENT)
+    * `username` (TEXT UNIQUE)
+    * `password` (TEXT) -> Wajib menyimpan *hash* SHA-256, bukan *plain text*.
+2.  **Tabel `sessions`**:
+    * `id` (INTEGER PRIMARY KEY AUTOINCREMENT)
+    * `user_id` (INTEGER) -> *Foreign Key* ke `users.id`
+    * `username` (TEXT)
+    * `is_biometric_enabled` (INTEGER DEFAULT 0) -> 1: Aktif, 0: Nonaktif
+    * `is_logged_in` (INTEGER DEFAULT 1) -> Menggunakan pendekatan "Kenyamanan" (Saat *logout*, ubah jadi 0, jangan hapus barisnya agar biometrik tetap bisa dipakai).
+3.  **Tabel `plans`** (Itinerary CRUD):
+    * `id` (INTEGER PRIMARY KEY AUTOINCREMENT)
+    * `user_id` (INTEGER) -> *Foreign Key* untuk filter data per pengguna.
+    * `title` (TEXT)
+    * `date` (TEXT) -> Format string dari DateRangePicker.
+    * `location` (TEXT)
+    * `details` (TEXT)
+
+---
+
+## 3. Fitur Autentikasi & Keamanan
+* **Registrasi:** Input *Username*, *Password*, dan Konfirmasi *Password*. Validasi ketat (minimal 3 karakter username, 6 karakter password). Enkripsi *password* sebelum `INSERT` ke tabel `users`. Tangani *error* jika *username* sudah dipakai.
+* **Login Manual:** Pengecekan ke tabel `users` dengan enkripsi. Jika sukses, buat sesi baru di tabel `sessions` atau `UPDATE is_logged_in = 1` jika sesi lama sudah ada.
+* **Login Biometrik (Fingerprint/FaceID):**
+    * Syarat: Baca baris di tabel `sessions`. Jika `is_biometric_enabled == 1`, izinkan sensor biometrik muncul di halaman Login.
+    * Aksi: Jika sidik jari cocok, `UPDATE is_logged_in = 1` dan arahkan ke `HomeScreen`.
+* **Logout:** Hanya mengubah status `is_logged_in = 0` di tabel `sessions`, *clear route*, lalu kembali ke layar Login.
+
+---
+
+## 4. Navigasi & Layout Utama
+Menggunakan `BottomNavigationBar` dengan struktur `IndexedStack` (agar *state* halaman tidak hilang saat berpindah *tab*). Terdiri dari 4 *Tab*:
+1.  **Beranda (`HomeView`)**: Dasbor utama dan CRUD Rencana.
+2.  **Tools (`ConverterView`)**: Alat bantu hitung dan sensor.
+3.  **Kesan (`FeedbackView`)**: Form kesan pesan TPM.
+4.  **Profil (`ProfileScreen`)**: Pengaturan akun.
+
+---
+
+## 5. Rincian Fitur per Halaman
+
+### TAB 1: Beranda (Home)
+Halaman bersifat `StatefulWidget` yang menampung komponen secara vertikal (`SingleChildScrollView`).
+* **Header:** Menampilkan Sapaan (Nama User) dan Widget Cuaca (Integrasi API OpenWeather/Dummy statis).
+* **Banner AI:** Banner *call-to-action* untuk asisten Trekker AI.
+* **Peta LBS:** Area *placeholder* (atau implementasi Google Maps) yang menampilkan titik "Lokasi Saat Ini".
+* **Modul CRUD Rencana Perjalanan (Itinerary):**
+    * **Read:** Menampilkan data dari tabel `plans` (hanya milik `user_id` yang sedang *login*). Tampilkan dalam bentuk `ListView.builder` berisi *Cards*.
+    * **Delete:** *Icon button* tempat sampah pada setiap *Card* yang akan menghapus data di SQLite dan me-*refresh* daftar.
+    * **Create (FAB):** Tombol melayang `+` untuk membuka `AddPlanScreen` (Mode Buat Baru).
+    * **Update:** *Icon button* pensil pada *Card* yang melempar data `plan` ke `AddPlanScreen` (Mode Edit).
+
+### Halaman Terpisah: `AddPlanScreen` (Form Itinerary)
+* **Mode Dinamis:** Jika menerima data *Plan*, berfungsi sebagai mode "Edit/Update". Jika tidak, berfungsi sebagai "Insert".
+* **Input Tanggal:** Menggunakan `showDateRangePicker` dengan `firstDate: DateTime.now()` (mengunci tanggal masa lalu). Input diatur ke `readOnly: true` agar *keyboard* tidak muncul.
+* **Input Lokasi (LBS Integration):** Harus terhubung ke Google Maps API agar *user* bisa menancapkan *pin* lokasi, bukan mengetik teks manual.
+* **Integrasi AI (Trekker AI):** Terdapat tombol "Isi Detail dengan AI". Jika ditekan, aplikasi harus mengirimkan parameter *Title*, *Date*, dan *Location* ke API LLM (Gemini/OpenAI) via *Web Service*, lalu hasilnya otomatis dimasukkan ke dalam `TextField` "Detail Perjalanan".
+
+### TAB 2: Tools (Utilities & Hardware)
+Halaman ini harus memuat fungsionalitas berikut dalam satu *view*:
+* **Konverter Mata Uang:** Input TextField untuk nilai Rupiah (IDR). Secara *real-time* (`onChanged`), kalkulasikan dan tampilkan nilainya dalam USD, EUR, dan JPY.
+* **Konverter Waktu:** Tampilkan perbandingan zona waktu menggunakan *Cards*: WIB (Saat ini), WITA (+1), WIT (+2), dan London (-7).
+* **Hardware Sensors:** Gunakan *package* `sensors_plus`. Tampilkan nilai *Accelerometer* sebagai Pedometer (Penghitung Langkah), dan nilai *Gyroscope*/*Magnetometer* sebagai Kompas Pintar (*Smart Compass*).
+* **Mini Games:** Tombol/Banner yang mengarah ke halaman *game* sederhana (kuis trivia/tebak bendera) sesuai kriteria hiburan (*games*).
+
+### TAB 3: Kesan (Saran TPM)
+* Formulir sederhana (TextField Multi-line) bagi pengguna untuk memberikan kritik, saran, dan kesan untuk mata kuliah Pemrograman Mobile. Data bisa dikirim ke API atau disimpan di SQLite.
+
+### TAB 4: Profil & Pengaturan
+* Menampilkan UI *Avatar* foto, *Username*, dan sub-judul.
+* *SwitchListTile* untuk mengatur "Login dengan Sidik Jari" (mengubah *value* `is_biometric_enabled` di tabel `sessions`).
+* Tombol "Logout" dengan *Dialog Confirmation* (Peringatan yakin/batal).
+
+---
+
+## 6. Integrasi Eksternal (Syarat API / Web Service)
+AI Agent wajib memperhatikan koneksi pihak ketiga berikut:
+1.  **Web Service (LLM):** Koneksi REST API ke Google Gemini (atau sejenisnya) dengan struktur *prompt* dinamis berdasarkan input CRUD pengguna.
+2.  **LBS (Google Maps API):** Pengaturan Android SDK dan iOS SDK untuk memunculkan Peta dan fungsi *Geocoding* (ubah titik koordinat jadi nama tempat).
+3.  **Local Notifications:** Menggunakan *package* `flutter_local_notifications` untuk memunculkan *alert* di HP pengingat waktu *trip* dari tabel `plans`.
+
+---
+
+**Selesai. Fokuskan pengerjaan berdasarkan Modul yang diminta secara bertahap.**
+
+---

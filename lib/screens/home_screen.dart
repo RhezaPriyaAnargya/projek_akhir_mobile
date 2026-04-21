@@ -63,14 +63,25 @@ class HomeView extends StatefulWidget {
 class _HomeViewState extends State<HomeView> {
   final DatabaseHelper _dbHelper = DatabaseHelper();
   List<Map<String, dynamic>> _plans = [];
+  String _username = 'Guest';
 
   @override
   void initState() {
     super.initState();
+    _loadUserData(); // Ambil data pengguna saat halaman pertama kali dibuka
     _refreshPlans(); // Ambil data saat halaman pertama kali dibuka
   }
 
   // Fungsi untuk mengambil data rencana dari SQLite
+  Future<void> _loadUserData() async {
+    final session = await _dbHelper.getCurrentSession();
+    if (session != null) {
+      setState(() {
+        _username = session['username'] ?? 'Guest';
+      });
+    }
+  }
+  
   Future<void> _refreshPlans() async {
     final data = await _dbHelper.getPlans();
     setState(() {
@@ -148,10 +159,10 @@ class _HomeViewState extends State<HomeView> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        const Column(
+        Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Halo, Rheza!', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            Text('Halo, $_username!', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             Text('Siap menjelajah hari ini?', style: TextStyle(color: Colors.grey, fontSize: 14)),
           ],
         ),
