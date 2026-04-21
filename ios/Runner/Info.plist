@@ -45,5 +45,11 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Aplikasi perlu akses lokasi untuk menampilkan peta dan location picker</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Aplikasi perlu akses lokasi untuk menampilkan peta dan location picker</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Aplikasi perlu akses lokasi untuk menampilkan peta dan location picker</string>
 </dict>
 </plist>
