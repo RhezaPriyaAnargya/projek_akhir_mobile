@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'profile_screen.dart'; 
 import 'detail_plan_screen.dart';
 import 'weather_detail_screen.dart';
 import 'add_plan_screen.dart'; 
+import 'map_picker_screen.dart';
 import '../helpers/database_helper.dart';
 import '../helpers/weather_helper.dart';
+import '../helpers/location_helper.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -69,6 +73,7 @@ class _HomeViewState extends State<HomeView> {
   String _username = 'Guest';
   WeatherData? _weatherData;
   bool _isLoadingWeather = true;
+  LatLng _currentLocation = LocationHelper.defaultLocation;
 
   @override
   void initState() {
@@ -76,6 +81,16 @@ class _HomeViewState extends State<HomeView> {
     _loadUserData();
     _refreshPlans();
     _loadWeather();
+    _loadCurrentLocation();
+  }
+
+  Future<void> _loadCurrentLocation() async {
+    final position = await LocationHelper.getCurrentLocation();
+    if (position != null) {
+      setState(() {
+        _currentLocation = LocationHelper.positionToLatLng(position);
+      });
+    }
   }
 
   Future<void> _loadUserData() async {
@@ -290,16 +305,41 @@ class _HomeViewState extends State<HomeView> {
       children: [
         const Text('Lokasi Saat Ini', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
-        Container(
-          height: 150, width: double.infinity,
-          decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade400)),
-          child: const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            height: 200,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: FlutterMap(
+              options: MapOptions(
+                initialCenter: _currentLocation,
+                initialZoom: 15,
+              ),
               children: [
-                Icon(Icons.map, size: 40, color: Colors.grey),
-                SizedBox(height: 8),
-                Text('(Integrasi Google Maps API di sini)', style: TextStyle(color: Colors.grey)),
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.solotrek.app',
+                ),
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: _currentLocation,
+                      width: 40,
+                      height: 40,
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          color: Colors.blueAccent,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.location_on, color: Colors.white, size: 18),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
