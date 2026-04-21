@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'profile_screen.dart'; 
 import 'detail_plan_screen.dart';
+import 'weather_detail_screen.dart';
 import 'add_plan_screen.dart'; 
-import '../helpers/database_helper.dart'; 
+import '../helpers/database_helper.dart';
+import '../helpers/weather_helper.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -65,12 +67,15 @@ class _HomeViewState extends State<HomeView> {
   final DatabaseHelper _dbHelper = DatabaseHelper();
   List<Map<String, dynamic>> _plans = [];
   String _username = 'Guest';
+  WeatherData? _weatherData;
+  bool _isLoadingWeather = true;
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
     _refreshPlans();
+    _loadWeather();
   }
 
   Future<void> _loadUserData() async {
@@ -87,6 +92,26 @@ class _HomeViewState extends State<HomeView> {
     setState(() {
       _plans = data;
     });
+  }
+
+  /// BARU: Load weather data
+  Future<void> _loadWeather() async {
+    setState(() {
+      _isLoadingWeather = true;
+    });
+    try {
+      // Default ke Yogyakarta, bisa diubah ke lokasi user nanti
+      final weather = await WeatherHelper.getWeatherByCity('Yogyakarta');
+      setState(() {
+        _weatherData = weather;
+        _isLoadingWeather = false;
+      });
+    } catch (e) {
+      print('Error loading weather: $e');
+      setState(() {
+        _isLoadingWeather = false;
+      });
+    }
   }
 
   @override
@@ -151,34 +176,80 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
+  /// UPDATED: Dynamic weather widget - Column layout
   Widget _buildGreetingAndWeather() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        // Greeting row
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Halo, $_username!', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-            const Text('Siap menjelajah hari ini?', style: TextStyle(color: Colors.grey, fontSize: 14)),
-          ],
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(12)),
-          child: const Row(
-            children: [
-              Icon(Icons.wb_sunny, color: Colors.orange, size: 20),
-              SizedBox(width: 8),
-              Column(
+            Flexible(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Yogyakarta', style: TextStyle(fontSize: 10, color: Colors.blueAccent)),
-                  Text('28°C Cerah', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+                  Text('Halo, $_username!', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  const Text('Siap menjelajah hari ini?', style: TextStyle(color: Colors.grey, fontSize: 14)),
                 ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
+        const SizedBox(height: 12),
+        // Weather widget - full width
+        _isLoadingWeather
+            ? Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(12)),
+                child: const SizedBox(height: 50, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+              )
+            : GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => WeatherDetailScreen(city: _weatherData?.city ?? 'Yogyakarta'),
+                    ),
+                  );
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(12)),
+                  child: Row(
+                    children: [
+                      Text(
+                        WeatherHelper.getWeatherEmoji(_weatherData?.icon ?? '01d'),
+                        style: const TextStyle(fontSize: 28),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _weatherData?.city ?? 'Unknown',
+                              style: const TextStyle(fontSize: 12, color: Colors.blueAccent, fontWeight: FontWeight.w600),
+                            ),
+                            Text(
+                              '${_weatherData?.temperature.toStringAsFixed(1)}°C',
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueAccent),
+                            ),
+                            Text(
+                              _weatherData?.description ?? 'Loading...',
+                              style: const TextStyle(fontSize: 12, color: Colors.blueAccent),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
       ],
     );
   }
