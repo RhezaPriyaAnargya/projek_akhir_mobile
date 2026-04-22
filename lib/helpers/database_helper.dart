@@ -21,7 +21,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'solotrek_local.db');
     return await openDatabase(
       path,
-      version: 3, // Naikkan versi menjadi 3 untuk membuat tabel plans
+      version: 4, // Naikkan versi menjadi 4 untuk membuat tabel feedback
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -57,10 +57,21 @@ class DatabaseHelper {
         details TEXT
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE feedbacks(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        kesan TEXT,
+        saran TEXT,
+        timestamp TEXT
+      )
+    ''');
   }
 
   // Jika aplikasi di-update, hapus tabel lama dan buat baru
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    await db.execute('DROP TABLE IF EXISTS feedbacks');
     await db.execute('DROP TABLE IF EXISTS plans'); // Hapus plans jika ada
     await db.execute('DROP TABLE IF EXISTS sessions');
     await db.execute('DROP TABLE IF EXISTS users');
@@ -84,7 +95,7 @@ class DatabaseHelper {
       });
       return true;
     } catch (e) {
-      return false; 
+      return false;
     }
   }
 
@@ -100,21 +111,34 @@ class DatabaseHelper {
 
     if (users.isNotEmpty) {
       // Hapus sesi milik akun lain agar HP hanya ingat 1 akun
-      await db.delete('sessions', where: 'username != ?', whereArgs: [username]);
-      
+      await db.delete(
+        'sessions',
+        where: 'username != ?',
+        whereArgs: [username],
+      );
+
       // Cek apakah user ini sudah punya riwayat sesi
-      final existingSession = await db.query('sessions', where: 'username = ?', whereArgs: [username]);
+      final existingSession = await db.query(
+        'sessions',
+        where: 'username = ?',
+        whereArgs: [username],
+      );
 
       if (existingSession.isNotEmpty) {
         // Jika sudah ada, cukup aktifkan status is_logged_in (Biometrik tetap aman)
-        await db.update('sessions', {'is_logged_in': 1}, where: 'username = ?', whereArgs: [username]);
+        await db.update(
+          'sessions',
+          {'is_logged_in': 1},
+          where: 'username = ?',
+          whereArgs: [username],
+        );
       } else {
         // Jika belum ada, buat sesi baru
         await db.insert('sessions', {
           'user_id': users.first['id'],
           'username': users.first['username'],
           'is_biometric_enabled': 0,
-          'is_logged_in': 1
+          'is_logged_in': 1,
         });
       }
       return true;
@@ -127,7 +151,11 @@ class DatabaseHelper {
   // Dipanggil saat aplikasi pertama dibuka (Hanya ambil yang sedang aktif)
   Future<Map<String, dynamic>?> getCurrentSession() async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('sessions', where: 'is_logged_in = 1', limit: 1);
+    final List<Map<String, dynamic>> maps = await db.query(
+      'sessions',
+      where: 'is_logged_in = 1',
+      limit: 1,
+    );
     if (maps.isNotEmpty) return maps.first;
     return null;
   }
@@ -135,7 +163,10 @@ class DatabaseHelper {
   // Dipanggil oleh Biometrik (Ambil sesi walau statusnya Logout)
   Future<Map<String, dynamic>?> getSavedSessionForBiometric() async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('sessions', limit: 1);
+    final List<Map<String, dynamic>> maps = await db.query(
+      'sessions',
+      limit: 1,
+    );
     if (maps.isNotEmpty) return maps.first;
     return null;
   }
@@ -148,7 +179,12 @@ class DatabaseHelper {
 
   Future<int> updateBiometricStatus(int sessionId, bool isEnabled) async {
     final db = await database;
-    return await db.update('sessions', {'is_biometric_enabled': isEnabled ? 1 : 0}, where: 'id = ?', whereArgs: [sessionId]);
+    return await db.update(
+      'sessions',
+      {'is_biometric_enabled': isEnabled ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [sessionId],
+    );
   }
 
   // LOGOUT (Hanya mengubah status, tidak menghapus data)
@@ -171,15 +207,15 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> getPlans() async {
     final db = await database;
     final session = await getCurrentSession();
-    
+
     // Jika tidak ada user yang login, kembalikan list kosong
     if (session == null) return [];
-    
+
     return await db.query(
-      'plans', 
-      where: 'user_id = ?', 
+      'plans',
+      where: 'user_id = ?',
       whereArgs: [session['user_id']],
-      orderBy: 'id DESC' // Urutkan dari yang terbaru
+      orderBy: 'id DESC', // Urutkan dari yang terbaru
     );
   }
 
@@ -197,6 +233,26 @@ class DatabaseHelper {
       plan,
       where: 'id = ?',
       whereArgs: [plan['id']], // Cari berdasarkan ID
+    );
+  }
+
+  Future<int> insertFeedback(Map<String, dynamic> feedback) async {
+    final db = await database;
+    return await db.insert('feedbacks', feedback);
+  }
+
+  // Ambil Semua Kesan Milik User yang Sedang Login (Jika nanti ingin ditampilkan)
+  Future<List<Map<String, dynamic>>> getFeedbacks() async {
+    final db = await database;
+    final session = await getCurrentSession();
+
+    if (session == null) return [];
+
+    return await db.query(
+      'feedbacks',
+      where: 'user_id = ?',
+      whereArgs: [session['user_id']],
+      orderBy: 'id DESC',
     );
   }
 }

@@ -10,6 +10,7 @@ import '../helpers/database_helper.dart';
 import '../helpers/weather_helper.dart';
 import '../helpers/location_helper.dart';
 import 'travel_utilities_screen.dart';
+import 'kesan_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -554,16 +555,11 @@ class ConverterView extends StatelessWidget {
   }
 }
 
-// ============================================================================
-// --- TAB 3: FEEDBACK VIEW ---
-// ============================================================================
 class FeedbackView extends StatelessWidget {
   const FeedbackView({super.key});
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Saran & Kesan TPM')),
-      body: const Center(child: Text('Halaman Input Saran & Kesan Kuliah TPM')),
-    );
+    return const KesanScreen();
   }
 }

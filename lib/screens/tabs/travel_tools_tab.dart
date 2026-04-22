@@ -30,6 +30,7 @@ class _TravelToolsTabState extends State<TravelToolsTab> {
   double _qiblaAngle = 0;
   bool _locationLoaded = false;
   String _locationStatus = 'Mendeteksi lokasi...';
+  int _initialSteps = 0;
 
   static const double _mekkahLat = 21.4225;
   static const double _mekkahLng = 39.8262;
@@ -56,10 +57,12 @@ class _TravelToolsTabState extends State<TravelToolsTab> {
       setState(() => _status = 'permission denied');
       return;
     }
-    _stepSub = Pedometer.stepCountStream.listen(
-      (e) => setState(() => _steps = e.steps),
-      onError: (e) => setState(() => _status = 'error: $e'),
-    );
+    _stepSub = Pedometer.stepCountStream.listen((e) {
+      if (_initialSteps == 0) {
+        _initialSteps = e.steps;
+      }
+      setState(() => _steps = e.steps - _initialSteps);
+    });
     _statusSub = Pedometer.pedestrianStatusStream.listen(
       (e) => setState(() => _status = e.status),
       onError: (_) {},
@@ -257,7 +260,10 @@ class _TravelToolsTabState extends State<TravelToolsTab> {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () => setState(() => _steps = 0),
+              onPressed: () {
+                _initialSteps = _initialSteps + _steps;
+                setState(() => _steps = 0);
+              },
               icon: const Icon(Icons.refresh, size: 16),
               label: const Text('Reset Langkah'),
               style: OutlinedButton.styleFrom(
