@@ -8,7 +8,6 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:pedometer/pedometer.dart';
 import 'package:sensors_plus/sensors_plus.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 // ─────────────────────────────────────────────
 // THEME COLORS
@@ -895,17 +894,10 @@ class _TravelToolsTabState extends State<_TravelToolsTab> {
     super.dispose();
   }
 
-  void _initPedometer() async {
-    // Minta izin dulu sebelum listen
-    final status = await Permission.activityRecognition.request();
-    if (!status.isGranted) {
-      setState(() => _status = 'permission denied');
-      return;
-    }
-
+  void _initPedometer() {
     _stepSub = Pedometer.stepCountStream.listen(
       (e) => setState(() => _steps = e.steps),
-      onError: (e) => setState(() => _status = 'error: $e'),
+      onError: (_) => setState(() => _status = 'error'),
     );
     _statusSub = Pedometer.pedestrianStatusStream.listen(
       (e) => setState(() => _status = e.status),
@@ -922,39 +914,64 @@ class _TravelToolsTabState extends State<_TravelToolsTab> {
   }
 
   Future<void> _initLocation() async {
-    setState(() {
-      _locationLoaded = false;
-      _locationStatus = 'Mendeteksi lokasi...';
-    });
-    try {
-      bool enabled = await Geolocator.isLocationServiceEnabled();
-      if (!enabled) {
-        setState(() => _locationStatus = 'Layanan lokasi tidak aktif');
-        return;
-      }
-      LocationPermission perm = await Geolocator.checkPermission();
-      if (perm == LocationPermission.denied) {
-        perm = await Geolocator.requestPermission();
-      }
-      if (perm == LocationPermission.denied ||
-          perm == LocationPermission.deniedForever) {
-        setState(() => _locationStatus = 'Izin lokasi ditolak');
-        return;
-      }
-      final pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium,
-      );
-      final qibla = _calcQibla(pos.latitude, pos.longitude);
-      setState(() {
-        _qiblaAngle = qibla;
-        _locationLoaded = true;
-        _locationStatus =
-            '${pos.latitude.toStringAsFixed(4)}°, ${pos.longitude.toStringAsFixed(4)}°';
-      });
-    } catch (_) {
-      setState(() => _locationStatus = 'Gagal mendapatkan lokasi');
+  setState(() {
+    _locationLoaded = false;
+    _locationStatus = 'Mendeteksi lokasi...';
+  });
+  try {
+    bool enabled = await Geolocator.isLocationServiceEnabled();
+    if (!enabled) {
+      setState(() => _locationStatus = 'Layanan lokasi tidak aktif');
+      return;
     }
+    LocationPermission perm = await Geolocator.checkPermission();
+    if (perm == LocationPermission.denied) {
+      perm = await Geolocator.requestPermission();
+    }
+    if (perm == LocationPermission.denied ||
+        perm == LocationPermission.deniedForever) {
+      setState(() => _locationStatus = 'Izin lokasi ditolak');
+      return;
+    }
+
+    // Coba lokasi terakhir dulu (instan, tidak perlu GPS)
+    Position? pos = await Geolocator.getLastKnownPosition();
+
+    if (pos == null) {
+      // Paksa timeout manual pakai Future.any
+      pos = await Future.any([
+        Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.low,
+        ),
+        Future.delayed(const Duration(seconds: 6)).then((_) => null),
+      ]);
+    }
+
+    if (pos == null) {
+      // Fallback koordinat Yogyakarta kalau tetap gagal
+      setState(() {
+        _qiblaAngle = _calcQibla(-7.7956, 110.3695);
+        _locationLoaded = true;
+        _locationStatus = 'Estimasi (Yogyakarta)';
+      });
+      return;
+    }
+
+    setState(() {
+      _qiblaAngle = _calcQibla(pos!.latitude, pos.longitude);
+      _locationLoaded = true;
+      _locationStatus =
+          '${pos.latitude.toStringAsFixed(4)}°, ${pos.longitude.toStringAsFixed(4)}°';
+    });
+  } catch (e) {
+    // Fallback koordinat Yogyakarta
+    setState(() {
+      _qiblaAngle = _calcQibla(-7.7956, 110.3695);
+      _locationLoaded = true;
+      _locationStatus = 'Estimasi (Yogyakarta)';
+    });
   }
+}
 
   double _calcQibla(double lat, double lng) {
     final latR = lat * math.pi / 180;
