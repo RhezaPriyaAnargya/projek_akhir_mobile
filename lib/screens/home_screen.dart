@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'profile_screen.dart'; 
+import 'profile_screen.dart';
 import 'detail_plan_screen.dart';
 import 'weather_detail_screen.dart';
-import 'add_plan_screen.dart'; 
+import 'add_plan_screen.dart';
 import 'map_picker_screen.dart';
 import '../helpers/database_helper.dart';
 import '../helpers/weather_helper.dart';
 import '../helpers/location_helper.dart';
-import 'tools.dart';
+import 'travel_utilities_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,10 +22,10 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
   static final List<Widget> _pages = <Widget>[
-    const HomeView(),      
-    const ConverterView(), 
-    const FeedbackView(),  
-    const ProfileScreen(), 
+    const HomeView(),
+    const ConverterView(),
+    const FeedbackView(),
+    const ProfileScreen(),
   ];
 
   void _onItemTapped(int index) {
@@ -37,12 +37,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _pages,
-      ),
+      body: IndexedStack(index: _selectedIndex, children: _pages),
       bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed, 
+        type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.blueAccent,
         unselectedItemColor: Colors.grey,
@@ -50,7 +47,10 @@ class _HomeScreenState extends State<HomeScreen> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Beranda'),
           BottomNavigationBarItem(icon: Icon(Icons.sync_alt), label: 'Tools'),
-          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Kesan'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.chat_bubble_outline),
+            label: 'Kesan',
+          ),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
         ],
       ),
@@ -102,7 +102,7 @@ class _HomeViewState extends State<HomeView> {
       });
     }
   }
-  
+
   Future<void> _refreshPlans() async {
     final data = await _dbHelper.getPlans();
     setState(() {
@@ -147,16 +147,19 @@ class _HomeViewState extends State<HomeView> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_none, color: Colors.blueAccent),
+            icon: const Icon(
+              Icons.notifications_none,
+              color: Colors.blueAccent,
+            ),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Belum ada notifikasi baru.')),
               );
             },
-          )
+          ),
         ],
       ),
-      
+
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.blueAccent,
         elevation: 4,
@@ -165,14 +168,14 @@ class _HomeViewState extends State<HomeView> {
             context,
             MaterialPageRoute(builder: (context) => const AddPlanScreen()),
           );
-          
+
           if (result == true) {
             _refreshPlans();
           }
         },
         child: const Icon(Icons.add, color: Colors.white, size: 28),
       ),
-      
+
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -185,7 +188,7 @@ class _HomeViewState extends State<HomeView> {
             _buildMapPlaceholder(),
             const SizedBox(height: 24),
             _buildMyPlansList(),
-            const SizedBox(height: 80), 
+            const SizedBox(height: 80),
           ],
         ),
       ),
@@ -205,8 +208,19 @@ class _HomeViewState extends State<HomeView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Halo, $_username!', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  const Text('Siap menjelajah hari ini?', style: TextStyle(color: Colors.grey, fontSize: 14)),
+                  Text(
+                    'Halo, $_username!',
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const Text(
+                    'Siap menjelajah hari ini?',
+                    style: TextStyle(color: Colors.grey, fontSize: 14),
+                  ),
                 ],
               ),
             ),
@@ -217,27 +231,48 @@ class _HomeViewState extends State<HomeView> {
         _isLoadingWeather
             ? Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(12)),
-                child: const SizedBox(height: 50, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const SizedBox(
+                  height: 50,
+                  child: Center(
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
               )
             : GestureDetector(
                 onTap: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => WeatherDetailScreen(city: _weatherData?.city ?? 'Yogyakarta'),
+                      builder: (context) => WeatherDetailScreen(
+                        city: _weatherData?.city ?? 'Yogyakarta',
+                      ),
                     ),
                   );
                 },
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   child: Row(
                     children: [
                       Text(
-                        WeatherHelper.getWeatherEmoji(_weatherData?.icon ?? '01d'),
+                        WeatherHelper.getWeatherEmoji(
+                          _weatherData?.icon ?? '01d',
+                        ),
                         style: const TextStyle(fontSize: 28),
                       ),
                       const SizedBox(width: 12),
@@ -247,15 +282,26 @@ class _HomeViewState extends State<HomeView> {
                           children: [
                             Text(
                               _weatherData?.city ?? 'Unknown',
-                              style: const TextStyle(fontSize: 12, color: Colors.blueAccent, fontWeight: FontWeight.w600),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.blueAccent,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                             Text(
                               '${_weatherData?.temperature.toStringAsFixed(1)}°C',
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueAccent),
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blueAccent,
+                              ),
                             ),
                             Text(
                               _weatherData?.description ?? 'Loading...',
-                              style: const TextStyle(fontSize: 12, color: Colors.blueAccent),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.blueAccent,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -274,9 +320,19 @@ class _HomeViewState extends State<HomeView> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Colors.blueAccent, Colors.lightBlue], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        gradient: const LinearGradient(
+          colors: [Colors.blueAccent, Colors.lightBlue],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.blueAccent.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blueAccent.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -284,17 +340,34 @@ class _HomeViewState extends State<HomeView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Trekker AI Assistant', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(
+                  'Trekker AI Assistant',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 SizedBox(height: 8),
-                Text('Biar AI yang merancang jadwal liburanmu secara otomatis.', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                Text(
+                  'Biar AI yang merancang jadwal liburanmu secara otomatis.',
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                ),
               ],
             ),
           ),
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: const BoxDecoration(color: Colors.white24, shape: BoxShape.circle),
-            child: const Icon(Icons.auto_awesome, color: Colors.white, size: 32),
-          )
+            decoration: const BoxDecoration(
+              color: Colors.white24,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.auto_awesome,
+              color: Colors.white,
+              size: 32,
+            ),
+          ),
         ],
       ),
     );
@@ -304,7 +377,10 @@ class _HomeViewState extends State<HomeView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Lokasi Saat Ini', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const Text(
+          'Lokasi Saat Ini',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 12),
         ClipRRect(
           borderRadius: BorderRadius.circular(16),
@@ -336,7 +412,11 @@ class _HomeViewState extends State<HomeView> {
                           color: Colors.blueAccent,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.location_on, color: Colors.white, size: 18),
+                        child: const Icon(
+                          Icons.location_on,
+                          color: Colors.white,
+                          size: 18,
+                        ),
                       ),
                     ),
                   ],
@@ -356,32 +436,35 @@ class _HomeViewState extends State<HomeView> {
         const Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Rencana Perjalanan Saya', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            Icon(Icons.search, color: Colors.grey), 
+            Text(
+              'Rencana Perjalanan Saya',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            Icon(Icons.search, color: Colors.grey),
           ],
         ),
         const SizedBox(height: 12),
-        
-        _plans.isEmpty 
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Text(
-                  'Belum ada rencana perjalanan.\nKetuk tombol + untuk mulai!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey.shade600),
+
+        _plans.isEmpty
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Text(
+                    'Belum ada rencana perjalanan.\nKetuk tombol + untuk mulai!',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey.shade600),
+                  ),
                 ),
+              )
+            : ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _plans.length,
+                itemBuilder: (context, index) {
+                  final plan = _plans[index];
+                  return _buildTripCard(plan);
+                },
               ),
-            )
-          : ListView.builder(
-              shrinkWrap: true, 
-              physics: const NeverScrollableScrollPhysics(), 
-              itemCount: _plans.length,
-              itemBuilder: (context, index) {
-                final plan = _plans[index];
-                return _buildTripCard(plan);
-              },
-            ),
       ],
     );
   }
@@ -393,7 +476,7 @@ class _HomeViewState extends State<HomeView> {
           context,
           MaterialPageRoute(builder: (context) => DetailPlanScreen(plan: plan)),
         );
-        
+
         if (result == true) {
           _refreshPlans();
         }
@@ -404,13 +487,22 @@ class _HomeViewState extends State<HomeView> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 5, offset: const Offset(0, 3))],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              blurRadius: 5,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: const Icon(Icons.flight_takeoff, color: Colors.blueAccent),
             ),
             const SizedBox(width: 16),
@@ -418,11 +510,27 @@ class _HomeViewState extends State<HomeView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(plan['title'], style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text(
+                    plan['title'],
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text(plan['date'], style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                  Text(
+                    plan['date'],
+                    style: const TextStyle(color: Colors.grey, fontSize: 13),
+                  ),
                   const SizedBox(height: 4),
-                  Text(plan['location'], style: const TextStyle(color: Colors.blueAccent, fontSize: 13, fontWeight: FontWeight.w500)),
+                  Text(
+                    plan['location'],
+                    style: const TextStyle(
+                      color: Colors.blueAccent,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ],
               ),
             ),
