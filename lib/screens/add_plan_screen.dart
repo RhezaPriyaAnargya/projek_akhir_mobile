@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 import '../helpers/database_helper.dart';
 import '../helpers/ai_helper.dart';
+import '../helpers/location_helper.dart';
+import 'map_picker_screen.dart';
 
 class AddPlanScreen extends StatefulWidget {
   final Map<String, dynamic>? plan;
@@ -18,6 +21,7 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
   final _detailsController = TextEditingController();
   final _dbHelper = DatabaseHelper();
   bool _isLoadingAI = false;
+  LatLng? _selectedLocation;
 
   // Error tracking
   String? _titleError;
@@ -336,14 +340,21 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
                   ),
                   suffixIcon: IconButton(
                     icon: const Icon(Icons.map, color: Colors.blueAccent),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Integrasi Google Maps akan segera ditambahkan!',
-                          ),
+                    onPressed: () async {
+                      final selectedLocation = await Navigator.push<LatLng>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => MapPickerScreen(initialLocation: _selectedLocation),
                         ),
                       );
+                      
+                      if (selectedLocation != null) {
+                        setState(() {
+                          _selectedLocation = selectedLocation;
+                          _locationController.text = LocationHelper.formatLocation(selectedLocation);
+                          _validateLocation();
+                        });
+                      }
                     },
                   ),
                   errorText: _locationError,
