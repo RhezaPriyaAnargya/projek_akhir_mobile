@@ -69,8 +69,10 @@ class HomeView extends StatefulWidget {
 class _HomeViewState extends State<HomeView> {
   final DatabaseHelper _dbHelper = DatabaseHelper();
   List<Map<String, dynamic>> _plans = [];
+  List<Map<String, dynamic>> _filteredPlans = [];
   String _username = 'Guest';
   String? _avatarPath;
+  String _searchQuery = '';
   WeatherData? _weatherData;
   bool _isLoadingWeather = true;
   LatLng _currentLocation = LocationHelper.defaultLocation;
@@ -110,6 +112,8 @@ class _HomeViewState extends State<HomeView> {
     final data = await _dbHelper.getPlans();
     setState(() {
       _plans = data;
+      _filteredPlans = data; // ← TAMBAH INI
+      _searchQuery = '';
     });
   }
 
@@ -129,6 +133,26 @@ class _HomeViewState extends State<HomeView> {
         _isLoadingWeather = false;
       });
     }
+  }
+
+  void _filterPlans(String query) {
+    setState(() {
+      _searchQuery = query;
+      if (query.isEmpty) {
+        _filteredPlans = _plans;
+      } else {
+        _filteredPlans = _plans.where((plan) {
+          final title = plan['title'].toString().toLowerCase();
+          final location = plan['location'].toString().toLowerCase();
+          final date = plan['date'].toString().toLowerCase();
+          final searchLower = query.toLowerCase();
+
+          return title.contains(searchLower) ||
+              location.contains(searchLower) ||
+              date.contains(searchLower);
+        }).toList();
+      }
+    });
   }
 
   @override
@@ -224,8 +248,8 @@ class _HomeViewState extends State<HomeView> {
             CircleAvatar(
               radius: 25,
               backgroundColor: Colors.blueAccent,
-              backgroundImage: _avatarPath != null &&
-                      File(_avatarPath!).existsSync()
+              backgroundImage:
+                  _avatarPath != null && File(_avatarPath!).existsSync()
                   ? FileImage(File(_avatarPath!)) as ImageProvider
                   : null,
               child: _avatarPath == null || !File(_avatarPath!).existsSync()
@@ -436,44 +460,89 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  Widget _buildMyPlansList() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Rencana Perjalanan Saya',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+Widget _buildMyPlansList() {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      // Search Bar
+      Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: TextField(
+          onChanged: _filterPlans,
+          decoration: InputDecoration(
+            hintText: 'Cari rencana perjalanan...',
+            prefixIcon: const Icon(Icons.search, color: Colors.grey),
+            suffixIcon: _searchQuery.isNotEmpty
+                ? GestureDetector(
+                    onTap: () => _filterPlans(''),
+                    child: const Icon(Icons.close, color: Colors.grey),
+                  )
+                : null,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
             ),
-            Icon(Icons.search, color: Colors.grey),
-          ],
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.blueAccent),
+            ),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          ),
         ),
-        const SizedBox(height: 12),
-        _plans.isEmpty
-            ? Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Text(
-                    'Belum ada rencana perjalanan.\nKetuk tombol + untuk mulai!',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey.shade600),
-                  ),
-                ),
-              )
-            : ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _plans.length,
-                itemBuilder: (context, index) {
-                  final plan = _plans[index];
-                  return _buildTripCard(plan);
-                },
+      ),
+
+      // Title & Count
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Rencana Perjalanan Saya',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          if (_searchQuery.isNotEmpty)
+            Text(
+              '${_filteredPlans.length} hasil',
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.grey,
               ),
-      ],
-    );
-  }
+            ),
+        ],
+      ),
+      const SizedBox(height: 12),
+
+      // Plans List
+      _filteredPlans.isEmpty
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Text(
+                  _searchQuery.isEmpty
+                      ? 'Belum ada rencana perjalanan.\nKetuk tombol + untuk mulai!'
+                      : 'Tidak ada rencana yang cocok\ndengan "${_searchQuery}"',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey.shade600),
+                ),
+              ),
+            )
+          : ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _filteredPlans.length,
+              itemBuilder: (context, index) {
+                final plan = _filteredPlans[index];  // ← GANTI _plans jadi _filteredPlans
+                return _buildTripCard(plan);
+              },
+            ),
+    ],
+  );
+}
+
 
   Widget _buildTripCard(Map<String, dynamic> plan) {
     return GestureDetector(
