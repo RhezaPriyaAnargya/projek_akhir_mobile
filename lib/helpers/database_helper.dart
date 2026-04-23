@@ -21,7 +21,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'solotrek_local.db');
     return await openDatabase(
       path,
-      version: 4, // Naikkan versi menjadi 4 untuk membuat tabel feedback
+      version: 5,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -32,7 +32,8 @@ class DatabaseHelper {
       CREATE TABLE users(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,
-        password TEXT 
+        password TEXT,
+        avatar_path TEXT DEFAULT NULL
       )
     ''');
 
@@ -42,11 +43,10 @@ class DatabaseHelper {
         user_id INTEGER,
         username TEXT,
         is_biometric_enabled INTEGER DEFAULT 0,
-        is_logged_in INTEGER DEFAULT 1 -- 1: Aktif, 0: Logout
+        is_logged_in INTEGER DEFAULT 1
       )
     ''');
 
-    // Menambahkan tabel plans (Itinerary)
     await db.execute('''
       CREATE TABLE plans(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -69,10 +69,9 @@ class DatabaseHelper {
     ''');
   }
 
-  // Jika aplikasi di-update, hapus tabel lama dan buat baru
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     await db.execute('DROP TABLE IF EXISTS feedbacks');
-    await db.execute('DROP TABLE IF EXISTS plans'); // Hapus plans jika ada
+    await db.execute('DROP TABLE IF EXISTS plans');
     await db.execute('DROP TABLE IF EXISTS sessions');
     await db.execute('DROP TABLE IF EXISTS users');
     await _onCreate(db, newVersion);
@@ -110,14 +109,12 @@ class DatabaseHelper {
     );
 
     if (users.isNotEmpty) {
-      // Hapus sesi milik akun lain agar HP hanya ingat 1 akun
       await db.delete(
         'sessions',
         where: 'username != ?',
         whereArgs: [username],
       );
 
-      // Cek apakah user ini sudah punya riwayat sesi
       final existingSession = await db.query(
         'sessions',
         where: 'username = ?',
@@ -125,7 +122,6 @@ class DatabaseHelper {
       );
 
       if (existingSession.isNotEmpty) {
-        // Jika sudah ada, cukup aktifkan status is_logged_in (Biometrik tetap aman)
         await db.update(
           'sessions',
           {'is_logged_in': 1},
@@ -133,7 +129,6 @@ class DatabaseHelper {
           whereArgs: [username],
         );
       } else {
-        // Jika belum ada, buat sesi baru
         await db.insert('sessions', {
           'user_id': users.first['id'],
           'username': users.first['username'],
@@ -146,9 +141,45 @@ class DatabaseHelper {
     return false;
   }
 
+  // Simpan path avatar ke database
+  Future<bool> updateUserAvatar(String username, String avatarPath) async {
+    final db = await database;
+    try {
+      await db.update(
+        'users',
+        {'avatar_path': avatarPath},
+        where: 'username = ?',
+        whereArgs: [username],
+      );
+      return true;
+    } catch (e) {
+      print('Error updating avatar: $e');
+      return false;
+    }
+  }
+
+  // Ambil avatar dari database
+  Future<String?> getUserAvatar(String username) async {
+    final db = await database;
+    try {
+      final List<Map<String, dynamic>> result = await db.query(
+        'users',
+        columns: ['avatar_path'],
+        where: 'username = ?',
+        whereArgs: [username],
+      );
+      if (result.isNotEmpty) {
+        return result.first['avatar_path'] as String?;
+      }
+      return null;
+    } catch (e) {
+      print('Error getting avatar: $e');
+      return null;
+    }
+  }
+
   // --- LOGIKA SESI BARU ---
 
-  // Dipanggil saat aplikasi pertama dibuka (Hanya ambil yang sedang aktif)
   Future<Map<String, dynamic>?> getCurrentSession() async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
@@ -160,7 +191,6 @@ class DatabaseHelper {
     return null;
   }
 
-  // Dipanggil oleh Biometrik (Ambil sesi walau statusnya Logout)
   Future<Map<String, dynamic>?> getSavedSessionForBiometric() async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
@@ -171,7 +201,6 @@ class DatabaseHelper {
     return null;
   }
 
-  // Dipanggil jika login sidik jari sukses (Ubah status jadi aktif lagi)
   Future<void> reactivateSession() async {
     final db = await database;
     await db.update('sessions', {'is_logged_in': 1});
@@ -187,7 +216,6 @@ class DatabaseHelper {
     );
   }
 
-  // LOGOUT (Hanya mengubah status, tidak menghapus data)
   Future<int> clearSession() async {
     final db = await database;
     return await db.update('sessions', {'is_logged_in': 0});
@@ -197,42 +225,37 @@ class DatabaseHelper {
   // --- CRUD PLANS (RENCANA PERJALANAN) ---
   // ==========================================
 
-  // Simpan Rencana Baru
   Future<int> insertPlan(Map<String, dynamic> plan) async {
     final db = await database;
     return await db.insert('plans', plan);
   }
 
-  // Ambil Semua Rencana Milik User yang Sedang Login
   Future<List<Map<String, dynamic>>> getPlans() async {
     final db = await database;
     final session = await getCurrentSession();
 
-    // Jika tidak ada user yang login, kembalikan list kosong
     if (session == null) return [];
 
     return await db.query(
       'plans',
       where: 'user_id = ?',
       whereArgs: [session['user_id']],
-      orderBy: 'id DESC', // Urutkan dari yang terbaru
+      orderBy: 'id DESC',
     );
   }
 
-  // Hapus Rencana
   Future<int> deletePlan(int id) async {
     final db = await database;
     return await db.delete('plans', where: 'id = ?', whereArgs: [id]);
   }
 
-  // Update Rencana (Edit)
   Future<int> updatePlan(Map<String, dynamic> plan) async {
     final db = await database;
     return await db.update(
       'plans',
       plan,
       where: 'id = ?',
-      whereArgs: [plan['id']], // Cari berdasarkan ID
+      whereArgs: [plan['id']],
     );
   }
 
@@ -241,7 +264,6 @@ class DatabaseHelper {
     return await db.insert('feedbacks', feedback);
   }
 
-  // Ambil Semua Kesan Milik User yang Sedang Login (Jika nanti ingin ditampilkan)
   Future<List<Map<String, dynamic>>> getFeedbacks() async {
     final db = await database;
     final session = await getCurrentSession();

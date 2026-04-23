@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'dart:io';
 import 'profile_screen.dart';
 import 'detail_plan_screen.dart';
 import 'weather_detail_screen.dart';
 import 'add_plan_screen.dart';
-import 'map_picker_screen.dart';
 import '../helpers/database_helper.dart';
 import '../helpers/weather_helper.dart';
 import '../helpers/location_helper.dart';
@@ -59,9 +59,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ============================================================================
-// --- TAB 1: DASHBOARD VIEW (BERANDA UTAMA) ---
-// ============================================================================
 class HomeView extends StatefulWidget {
   const HomeView({super.key});
 
@@ -73,6 +70,7 @@ class _HomeViewState extends State<HomeView> {
   final DatabaseHelper _dbHelper = DatabaseHelper();
   List<Map<String, dynamic>> _plans = [];
   String _username = 'Guest';
+  String? _avatarPath;
   WeatherData? _weatherData;
   bool _isLoadingWeather = true;
   LatLng _currentLocation = LocationHelper.defaultLocation;
@@ -80,7 +78,7 @@ class _HomeViewState extends State<HomeView> {
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    _loadUserDataAndAvatar();
     _refreshPlans();
     _loadWeather();
     _loadCurrentLocation();
@@ -95,11 +93,15 @@ class _HomeViewState extends State<HomeView> {
     }
   }
 
-  Future<void> _loadUserData() async {
+  Future<void> _loadUserDataAndAvatar() async {
     final session = await _dbHelper.getCurrentSession();
     if (session != null) {
+      final username = session['username'] ?? 'Guest';
+      final avatar = await _dbHelper.getUserAvatar(username);
+
       setState(() {
-        _username = session['username'] ?? 'Guest';
+        _username = username;
+        _avatarPath = avatar;
       });
     }
   }
@@ -111,13 +113,11 @@ class _HomeViewState extends State<HomeView> {
     });
   }
 
-  /// BARU: Load weather data
   Future<void> _loadWeather() async {
     setState(() {
       _isLoadingWeather = true;
     });
     try {
-      // Default ke Yogyakarta, bisa diubah ke lokasi user nanti
       final weather = await WeatherHelper.getWeatherByCity('Yogyakarta');
       setState(() {
         _weatherData = weather;
@@ -160,7 +160,6 @@ class _HomeViewState extends State<HomeView> {
           ),
         ],
       ),
-
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.blueAccent,
         elevation: 4,
@@ -176,7 +175,6 @@ class _HomeViewState extends State<HomeView> {
         },
         child: const Icon(Icons.add, color: Colors.white, size: 28),
       ),
-
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -196,12 +194,10 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  /// UPDATED: Dynamic weather widget - Column layout
   Widget _buildGreetingAndWeather() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Greeting row
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -225,10 +221,20 @@ class _HomeViewState extends State<HomeView> {
                 ],
               ),
             ),
+            CircleAvatar(
+              radius: 25,
+              backgroundColor: Colors.blueAccent,
+              backgroundImage: _avatarPath != null &&
+                      File(_avatarPath!).existsSync()
+                  ? FileImage(File(_avatarPath!)) as ImageProvider
+                  : null,
+              child: _avatarPath == null || !File(_avatarPath!).existsSync()
+                  ? const Icon(Icons.person, size: 25, color: Colors.white)
+                  : null,
+            ),
           ],
         ),
         const SizedBox(height: 12),
-        // Weather widget - full width
         _isLoadingWeather
             ? Container(
                 width: double.infinity,
@@ -445,7 +451,6 @@ class _HomeViewState extends State<HomeView> {
           ],
         ),
         const SizedBox(height: 12),
-
         _plans.isEmpty
             ? Center(
                 child: Padding(
@@ -543,9 +548,6 @@ class _HomeViewState extends State<HomeView> {
   }
 }
 
-// ============================================================================
-// --- TAB 2: CONVERTER VIEW ---
-// ============================================================================
 class ConverterView extends StatelessWidget {
   const ConverterView({super.key});
 
