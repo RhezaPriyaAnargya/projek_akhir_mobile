@@ -15,7 +15,8 @@ class TravelToolsTab extends StatefulWidget {
   State<TravelToolsTab> createState() => _TravelToolsTabState();
 }
 
-class _TravelToolsTabState extends State<TravelToolsTab> {
+class _TravelToolsTabState extends State<TravelToolsTab>
+    with AutomaticKeepAliveClientMixin {
   // ── Pedometer ──
   StreamSubscription<StepCount>? _stepSub;
   StreamSubscription<PedestrianStatus>? _statusSub;
@@ -34,6 +35,9 @@ class _TravelToolsTabState extends State<TravelToolsTab> {
 
   static const double _mekkahLat = 21.4225;
   static const double _mekkahLng = 39.8262;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -130,6 +134,7 @@ class _TravelToolsTabState extends State<TravelToolsTab> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
