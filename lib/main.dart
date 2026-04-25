@@ -3,10 +3,12 @@ import 'helpers/database_helper.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'helpers/notification_helper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+  await NotificationHelper.init();
+
   // Load .env file dengan error handling
   try {
     await dotenv.load(fileName: ".env");
@@ -14,7 +16,7 @@ void main() async {
     print('⚠️ Warning: .env file not found. Using default values.');
     // Jika .env tidak ditemukan, lanjutkan tanpa error
   }
-  
+
   runApp(const MyApp());
 }
 
@@ -41,12 +43,12 @@ class MyApp extends StatelessWidget {
               body: Center(child: CircularProgressIndicator()),
             );
           }
-          
+
           // 2. Jika pengecekan selesai dan DITEMUKAN sesi tersimpan
           if (snapshot.hasData && snapshot.data != null) {
             return const HomeScreen();
           }
-          
+
           // 3. Jika pengecekan selesai dan TIDAK ADA sesi (null)
           return const LoginScreen();
         },

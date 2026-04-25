@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../helpers/database_helper.dart';
+import '../helpers/notification_helper.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import 'login_screen.dart';
 
@@ -18,21 +20,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _avatarPath;
   final ImagePicker _imagePicker = ImagePicker();
   bool _isBiometricEnabled = false;
+  bool _isNotificationEnabled = true;
   int? _sessionId;
 
   @override
   void initState() {
     super.initState();
     _loadProfileData();
+    _loadNotificationPref();
   }
 
-  // Mengambil data user yang sedang login dari SQLite
+  Future<void> _loadNotificationPref() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isNotificationEnabled = prefs.getBool('notification_enabled') ?? true;
+    });
+  }
+
   Future<void> _loadProfileData() async {
     final session = await _dbHelper.getCurrentSession();
     if (session != null) {
-      // Load avatar path terpisah karena perlu await
       final avatar = await _dbHelper.getUserAvatar(session['username']);
-
       setState(() {
         _sessionId = session['id'];
         _username = session['username'];
@@ -42,16 +50,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // Fungsi untuk pilih foto dari galeri
   Future<void> _pickImage() async {
     final XFile? image = await _imagePicker.pickImage(
       source: ImageSource.gallery,
     );
 
     if (image != null) {
-      // Simpan path ke database
       final success = await _dbHelper.updateUserAvatar(_username, image.path);
-
       if (success) {
         setState(() {
           _avatarPath = image.path;
@@ -65,14 +70,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // Fungsi untuk mematikan/menghidupkan biometrik
   Future<void> _toggleBiometric(bool value) async {
     if (_sessionId != null) {
       await _dbHelper.updateBiometricStatus(_sessionId!, value);
       setState(() {
         _isBiometricEnabled = value;
       });
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -88,7 +91,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // Fungsi Logout
+  Future<void> _toggleNotification(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('notification_enabled', value);
+
+    if (!value) {
+      // Matikan semua notifikasi yang sudah terjadwal
+      await NotificationHelper.cancelAllNotifications();
+    }
+
+    setState(() {
+      _isNotificationEnabled = value;
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            value ? '🔔 Notifikasi Diaktifkan' : '🔕 Notifikasi Dimatikan',
+          ),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+    }
+  }
+
   Future<void> _logout(BuildContext context) async {
     await _dbHelper.clearSession();
     if (context.mounted) {
@@ -118,7 +145,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             const SizedBox(height: 30),
 
-            // --- 1. FOTO PROFIL DENGAN AVATAR ---
+            // --- FOTO PROFIL ---
             Center(
               child: Stack(
                 alignment: Alignment.bottomRight,
@@ -126,13 +153,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   CircleAvatar(
                     radius: 60,
                     backgroundColor: Colors.blueAccent,
-                    backgroundImage: _avatarPath != null &&
-                            File(_avatarPath!).existsSync()
+                    backgroundImage:
+                        _avatarPath != null && File(_avatarPath!).existsSync()
                         ? FileImage(File(_avatarPath!)) as ImageProvider
                         : null,
-                    child: _avatarPath == null ||
-                            !File(_avatarPath!).existsSync()
-                        ? const Icon(Icons.person, size: 60, color: Colors.white)
+                    child:
+                        _avatarPath == null || !File(_avatarPath!).existsSync()
+                        ? const Icon(
+                            Icons.person,
+                            size: 60,
+                            color: Colors.white,
+                          )
                         : null,
                   ),
                   Container(
@@ -153,7 +184,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 20),
 
-            // --- 2. NAMA USERNAME ---
+            // --- USERNAME ---
             Text(
               _username,
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
@@ -166,9 +197,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 40),
             const Divider(thickness: 1),
 
-            // --- 3. MENU PENGATURAN ---
+            // --- TOGGLE NOTIFIKASI ---
+            SwitchListTile(
+              title: const Text(
+                'Notifikasi',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(
+                _isNotificationEnabled
+                    ? 'Pengingat rencana perjalanan aktif'
+                    : 'Notifikasi dimatikan',
+              ),
+              secondary: Icon(
+                _isNotificationEnabled
+                    ? Icons.notifications_active
+                    : Icons.notifications_off,
+                color: _isNotificationEnabled ? Colors.blueAccent : Colors.grey,
+              ),
+              value: _isNotificationEnabled,
+              activeColor: Colors.blueAccent,
+              onChanged: _toggleNotification,
+            ),
 
-            // Toggle Biometrik
+            const Divider(thickness: 1),
+
+            // --- TOGGLE BIOMETRIK ---
             SwitchListTile(
               title: const Text(
                 'Login dengan Sidik Jari',
@@ -186,7 +239,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             const Divider(thickness: 1),
 
-            // Tombol Logout
+            // --- LOGOUT ---
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.redAccent),
               title: const Text(
