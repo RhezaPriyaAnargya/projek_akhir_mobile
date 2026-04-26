@@ -51,5 +51,14 @@
 	<string>Aplikasi perlu akses lokasi untuk menampilkan peta dan location picker</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>Aplikasi perlu akses lokasi untuk menampilkan peta dan location picker</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Kamera diperlukan untuk mengambil foto profil</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Akses galeri diperlukan untuk memilih foto</string>
 </dict>
 </plist>

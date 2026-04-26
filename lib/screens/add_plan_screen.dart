@@ -4,6 +4,8 @@ import '../helpers/database_helper.dart';
 import '../helpers/ai_helper.dart';
 import '../helpers/location_helper.dart';
 import 'map_picker_screen.dart';
+import '../helpers/notification_helper.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AddPlanScreen extends StatefulWidget {
   final Map<String, dynamic>? plan;
@@ -30,8 +32,18 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
   String? _detailsError;
 
   final List<String> _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
-    'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'Mei',
+    'Jun',
+    'Jul',
+    'Ags',
+    'Sep',
+    'Okt',
+    'Nov',
+    'Des',
   ];
 
   // Konstanta validasi
@@ -188,10 +200,7 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -211,24 +220,63 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
     try {
       final session = await _dbHelper.getCurrentSession();
       if (session != null) {
+        // Definisikan variabel di sini agar bisa dipakai di mana saja
+        final title = _titleController.text.trim();
+        final date = _dateController.text;
+        final location = _locationController.text.trim();
+
+        // Cek preferensi notifikasi
+        final prefs = await SharedPreferences.getInstance();
+        final notifEnabled = prefs.getBool('notification_enabled') ?? true;
+
         if (widget.plan == null) {
+          // ── INSERT ────────────────────────────────────────────
           await _dbHelper.insertPlan({
             'user_id': session['user_id'],
-            'title': _titleController.text.trim(),
-            'date': _dateController.text,
-            'location': _locationController.text.trim(),
+            'title': title,
+            'date': date,
+            'location': location,
             'details': _detailsController.text.trim(),
           });
+
+          if (notifEnabled) {
+            // 🔔 Notifikasi 1: plan berhasil dibuat
+            NotificationHelper.showPlanCreatedNotification(
+              planTitle: title,
+              planLocation: location,
+            ).then((_) async {
+              await Future.delayed(const Duration(seconds: 15));
+              await NotificationHelper.scheduleH1Reminder(
+                planTitle: title,
+                planLocation: location,
+                dateString: date,
+              );
+            });
+          }
         } else {
+          // ── UPDATE ────────────────────────────────────────────
+          await NotificationHelper.cancelPlanNotifications(
+            widget.plan!['title'] as String,
+          );
+
           await _dbHelper.updatePlan({
             'id': widget.plan!['id'],
             'user_id': session['user_id'],
-            'title': _titleController.text.trim(),
-            'date': _dateController.text,
-            'location': _locationController.text.trim(),
+            'title': title,
+            'date': date,
+            'location': location,
             'details': _detailsController.text.trim(),
           });
+
+          if (notifEnabled) {
+            await NotificationHelper.scheduleH1Reminder(
+              planTitle: title,
+              planLocation: location,
+              dateString: date,
+            );
+          }
         }
+
         if (mounted) Navigator.pop(context, true);
       } else {
         if (mounted) {
@@ -243,10 +291,7 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -293,7 +338,8 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
                     borderRadius: BorderRadius.circular(12),
                     borderSide: const BorderSide(color: Colors.red, width: 2),
                   ),
-                  counterText: '${_titleController.text.length}/$MAX_TITLE_LENGTH',
+                  counterText:
+                      '${_titleController.text.length}/$MAX_TITLE_LENGTH',
                 ),
                 onChanged: (_) => _validateTitle(),
               ),
@@ -344,14 +390,17 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
                       final selectedLocation = await Navigator.push<LatLng>(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => MapPickerScreen(initialLocation: _selectedLocation),
+                          builder: (context) => MapPickerScreen(
+                            initialLocation: _selectedLocation,
+                          ),
                         ),
                       );
-                      
+
                       if (selectedLocation != null) {
                         setState(() {
                           _selectedLocation = selectedLocation;
-                          _locationController.text = LocationHelper.formatLocation(selectedLocation);
+                          _locationController.text =
+                              LocationHelper.formatLocation(selectedLocation);
                           _validateLocation();
                         });
                       }
@@ -366,7 +415,8 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
                     borderRadius: BorderRadius.circular(12),
                     borderSide: const BorderSide(color: Colors.red, width: 2),
                   ),
-                  counterText: '${_locationController.text.length}/$MAX_LOCATION_LENGTH',
+                  counterText:
+                      '${_locationController.text.length}/$MAX_LOCATION_LENGTH',
                 ),
                 onChanged: (_) => _validateLocation(),
               ),
@@ -422,7 +472,8 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
                     borderRadius: BorderRadius.circular(12),
                     borderSide: const BorderSide(color: Colors.red, width: 2),
                   ),
-                  counterText: '${_detailsController.text.length}/$MAX_DETAILS_LENGTH',
+                  counterText:
+                      '${_detailsController.text.length}/$MAX_DETAILS_LENGTH',
                 ),
                 onChanged: (_) => _validateDetails(),
               ),
@@ -451,7 +502,7 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
                     ),
                   ),
                 ),
-              )
+              ),
             ],
           ),
         ),
