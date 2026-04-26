@@ -13,49 +13,56 @@ class MapPickerScreen extends StatefulWidget {
 }
 
 class _MapPickerScreenState extends State<MapPickerScreen> {
-  late LatLng _selectedLocation;
-  late MapController _mapController;
+  LatLng _markerPosition = const LatLng(-7.797068, 110.370529);
+  final double _zoom = 15;
+  final MapController _mapController = MapController();
 
   @override
   void initState() {
     super.initState();
-    _selectedLocation = widget.initialLocation ?? LocationHelper.defaultLocation;
-    _mapController = MapController();
+    if (widget.initialLocation != null) {
+      _markerPosition = widget.initialLocation!;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _useCurrentLocation();
+    });
   }
 
-  void _onMapTap(LatLng location) {
-    setState(() {
-      _selectedLocation = location;
-    });
+  @override
+  void dispose() {
+    _mapController.dispose();
+    super.dispose();
   }
 
   Future<void> _useCurrentLocation() async {
     final position = await LocationHelper.getCurrentLocation();
-    if (position != null) {
+    if (position != null && mounted) {
       final latLng = LocationHelper.positionToLatLng(position);
       setState(() {
-        _selectedLocation = latLng;
+        _markerPosition = latLng;
       });
-      _mapController.move(latLng, 15);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Gagal mendapatkan lokasi saat ini')),
-      );
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (mounted) {
+        _mapController.move(latLng, _zoom);
+      }
     }
+  }
+
+  void _onMapTap(LatLng location) {
+    setState(() {
+      _markerPosition = location;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        foregroundColor: Colors.blueAccent,
-        title: const Text('Pilih Lokasi', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Pilih Lokasi'),
         actions: [
           IconButton(
             icon: const Icon(Icons.check),
-            onPressed: () => Navigator.pop(context, _selectedLocation),
+            onPressed: () => Navigator.pop(context, _markerPosition),
           ),
         ],
       ),
@@ -64,9 +71,10 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: _selectedLocation,
-              initialZoom: 15,
+              initialCenter: _markerPosition,
+              initialZoom: _zoom,
               onTap: (tapPosition, point) => _onMapTap(point),
+              onMapReady: () => print('=== onMapReady ==='),
             ),
             children: [
               TileLayer(
@@ -76,38 +84,13 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
               MarkerLayer(
                 markers: [
                   Marker(
-                    point: _selectedLocation,
+                    point: _markerPosition,
                     width: 80,
                     height: 80,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: const BoxDecoration(
-                            color: Colors.blueAccent,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.location_on, color: Colors.white, size: 20),
-                        ),
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.blueAccent,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            LocationHelper.formatLocation(_selectedLocation),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 8,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
+                    child: const Icon(
+                      Icons.location_on,
+                      color: Colors.red,
+                      size: 40,
                     ),
                   ),
                 ],
@@ -116,12 +99,10 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
           ),
           Positioned(
             bottom: 16,
-            left: 16,
             right: 16,
-            child: FloatingActionButton.extended(
+            child: FloatingActionButton(
               onPressed: _useCurrentLocation,
-              icon: const Icon(Icons.my_location),
-              label: const Text('Lokasi Saat Ini'),
+              child: const Icon(Icons.my_location),
             ),
           ),
         ],

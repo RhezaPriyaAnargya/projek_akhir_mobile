@@ -13,10 +13,10 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>(); // Key untuk Form Validasi
-  
+
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  
+
   final LocalAuthentication _localAuth = LocalAuthentication();
   final DatabaseHelper _dbHelper = DatabaseHelper();
 
@@ -33,17 +33,21 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleLogin() async {
     // Cek form validasi
     if (!_formKey.currentState!.validate()) {
-      return; 
+      return;
     }
 
-    setState(() { _isLoading = true; });
+    setState(() {
+      _isLoading = true;
+    });
 
     final username = _usernameController.text.trim();
     final password = _passwordController.text;
 
     bool loginSuccess = await _dbHelper.loginUser(username, password);
 
-    setState(() { _isLoading = false; });
+    setState(() {
+      _isLoading = false;
+    });
 
     if (loginSuccess && mounted) {
       Navigator.pushReplacement(
@@ -72,12 +76,14 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleBiometricLogin() async {
     try {
       final session = await _dbHelper.getSavedSessionForBiometric();
-      
+
       if (session == null || session['is_biometric_enabled'] == 0) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Login Sidik Jari belum aktif. Silakan login manual dan aktifkan di menu Profil.'),
+              content: Text(
+                'Login Sidik Jari belum aktif. Silakan login manual dan aktifkan di menu Profil.',
+              ),
               backgroundColor: Colors.orange,
               behavior: SnackBarBehavior.floating,
             ),
@@ -92,14 +98,17 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!canCheckBiometrics || !isSupported) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Perangkat tidak mendukung biometrik.')),
+            const SnackBar(
+              content: Text('Perangkat tidak mendukung biometrik.'),
+            ),
           );
         }
         return;
       }
 
       bool didAuthenticate = await _localAuth.authenticate(
-        localizedReason: 'Gunakan sidik jari untuk masuk sebagai ${session['username']}',
+        localizedReason:
+            'Gunakan sidik jari untuk masuk sebagai ${session['username']}',
         options: const AuthenticationOptions(
           biometricOnly: true,
           stickyAuth: true,
@@ -131,31 +140,31 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 40),
-                const Icon(Icons.travel_explore, size: 80, color: Colors.blueAccent),
-                const SizedBox(height: 16),
-                const Text(
-                  'SoloTrek',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.blueAccent),
+                const SizedBox(height: 0),
+                Image.asset(
+                  'assets/icon/app_icon.png',
+                  width: 200,
+                  height: 200,
                 ),
-                const Text('Smart Travel Planner', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.grey)),
-                const SizedBox(height: 60),
+                const SizedBox(height: 40),
 
                 TextFormField(
                   controller: _usernameController,
                   decoration: InputDecoration(
                     labelText: 'Username',
                     prefixIcon: const Icon(Icons.person_outline),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   validator: (value) {
-                    if (value == null || value.trim().isEmpty) return 'Silakan masukkan username';
+                    if (value == null || value.trim().isEmpty)
+                      return 'Silakan masukkan username';
                     return null;
                   },
                 ),
                 const SizedBox(height: 20),
-                
+
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
@@ -163,13 +172,21 @@ class _LoginScreenState extends State<LoginScreen> {
                     labelText: 'Password',
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
-                      icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
-                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                      ),
+                      onPressed: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
                     ),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) return 'Silakan masukkan password';
+                    if (value == null || value.isEmpty)
+                      return 'Silakan masukkan password';
                     return null;
                   },
                 ),
@@ -181,16 +198,26 @@ class _LoginScreenState extends State<LoginScreen> {
                     onPressed: _isLoading ? null : _handleLogin,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blueAccent,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     child: _isLoading
                         ? const SizedBox(
-                            height: 24, width: 24,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
                           )
                         : const Text(
                             'Login',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
                           ),
                   ),
                 ),
@@ -201,7 +228,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     Expanded(child: Divider(thickness: 1)),
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Text('atau masuk dengan', style: TextStyle(color: Colors.grey)),
+                      child: Text(
+                        'atau masuk dengan',
+                        style: TextStyle(color: Colors.grey),
+                      ),
                     ),
                     Expanded(child: Divider(thickness: 1)),
                   ],
@@ -217,13 +247,20 @@ class _LoginScreenState extends State<LoginScreen> {
                       decoration: BoxDecoration(
                         color: Colors.blue.shade50,
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.blue.shade200, width: 2),
+                        border: Border.all(
+                          color: Colors.blue.shade200,
+                          width: 2,
+                        ),
                       ),
-                      child: const Icon(Icons.fingerprint, size: 40, color: Colors.blueAccent),
+                      child: const Icon(
+                        Icons.fingerprint,
+                        size: 40,
+                        color: Colors.blueAccent,
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 25),
 
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -233,10 +270,18 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => const RegisterScreen()),
+                          MaterialPageRoute(
+                            builder: (context) => const RegisterScreen(),
+                          ),
                         );
                       },
-                      child: const Text('Daftar di sini', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+                      child: const Text(
+                        'Daftar di sini',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blueAccent,
+                        ),
+                      ),
                     ),
                   ],
                 ),

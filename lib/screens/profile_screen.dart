@@ -90,7 +90,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   color: Colors.blue.shade50,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.photo_library, color: Colors.blueAccent),
+                child: const Icon(
+                  Icons.photo_library,
+                  color: Colors.blueAccent,
+                ),
               ),
               title: const Text('Pilih dari Galeri'),
               onTap: () => Navigator.pop(ctx, ImageSource.gallery),
@@ -142,8 +145,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (croppedFile == null) return;
 
-    final success =
-        await _dbHelper.updateUserAvatar(_username, croppedFile.path);
+    final success = await _dbHelper.updateUserAvatar(
+      _username,
+      croppedFile.path,
+    );
     if (success) {
       setState(() => _avatarPath = croppedFile.path);
 
@@ -172,9 +177,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(value
-                ? 'Login Sidik Jari Diaktifkan'
-                : 'Login Sidik Jari Dimatikan'),
+            content: Text(
+              value
+                  ? 'Login Sidik Jari Diaktifkan'
+                  : 'Login Sidik Jari Dimatikan',
+            ),
             duration: const Duration(seconds: 1),
           ),
         );
@@ -191,7 +198,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-              value ? '🔔 Notifikasi Diaktifkan' : '🔕 Notifikasi Dimatikan'),
+            value ? '🔔 Notifikasi Diaktifkan' : '🔕 Notifikasi Dimatikan',
+          ),
           duration: const Duration(seconds: 1),
         ),
       );
@@ -214,8 +222,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Profil & Pengaturan',
-            style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Profil & Pengaturan',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.white,
         foregroundColor: Colors.blueAccent,
         elevation: 0,
@@ -236,20 +246,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                            color: Colors.blueAccent.withOpacity(0.3),
-                            width: 3),
+                          color: Colors.blueAccent.withOpacity(0.3),
+                          width: 3,
+                        ),
                       ),
                       child: CircleAvatar(
                         radius: 60,
                         backgroundColor: Colors.blueAccent,
-                        backgroundImage: _avatarPath != null &&
+                        backgroundImage:
+                            _avatarPath != null &&
                                 File(_avatarPath!).existsSync()
                             ? FileImage(File(_avatarPath!)) as ImageProvider
                             : null,
-                        child: _avatarPath == null ||
+                        child:
+                            _avatarPath == null ||
                                 !File(_avatarPath!).existsSync()
-                            ? const Icon(Icons.person,
-                                size: 60, color: Colors.white)
+                            ? const Icon(
+                                Icons.person,
+                                size: 60,
+                                color: Colors.white,
+                              )
                             : null,
                       ),
                     ),
@@ -262,8 +278,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         color: Colors.blueAccent,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.camera_alt,
-                          color: Colors.white, size: 18),
+                      child: const Icon(
+                        Icons.camera_alt,
+                        color: Colors.white,
+                        size: 18,
+                      ),
                     ),
                   ),
                 ],
@@ -279,28 +298,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
 
             // --- USERNAME ---
-            Text(_username,
-                style: const TextStyle(
-                    fontSize: 24, fontWeight: FontWeight.bold)),
-            const Text('Traveler SoloTrek',
-                style: TextStyle(color: Colors.grey, fontSize: 16)),
+            Text(
+              _username,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const Text(
+              'Traveler SoloTrek',
+              style: TextStyle(color: Colors.grey, fontSize: 16),
+            ),
 
             const SizedBox(height: 32),
             const Divider(thickness: 1),
 
             // --- TOGGLE NOTIFIKASI ---
             SwitchListTile(
-              title: const Text('Notifikasi',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text(_isNotificationEnabled
-                  ? 'Pengingat rencana perjalanan aktif'
-                  : 'Notifikasi dimatikan'),
+              title: const Text(
+                'Notifikasi',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(
+                _isNotificationEnabled
+                    ? 'Pengingat rencana perjalanan aktif'
+                    : 'Notifikasi dimatikan',
+              ),
               secondary: Icon(
                 _isNotificationEnabled
                     ? Icons.notifications_active
                     : Icons.notifications_off,
-                color:
-                    _isNotificationEnabled ? Colors.blueAccent : Colors.grey,
+                color: _isNotificationEnabled ? Colors.blueAccent : Colors.grey,
               ),
               value: _isNotificationEnabled,
               activeColor: Colors.blueAccent,
@@ -311,12 +336,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             // --- TOGGLE BIOMETRIK ---
             SwitchListTile(
-              title: const Text('Login dengan Sidik Jari',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle:
-                  const Text('Gunakan biometrik untuk masuk lebih cepat'),
-              secondary:
-                  const Icon(Icons.fingerprint, color: Colors.blueAccent),
+              title: const Text(
+                'Login dengan Sidik Jari',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: const Text('Gunakan biometrik untuk masuk lebih cepat'),
+              secondary: const Icon(
+                Icons.fingerprint,
+                color: Colors.blueAccent,
+              ),
               value: _isBiometricEnabled,
               activeColor: Colors.blueAccent,
               onChanged: _toggleBiometric,
@@ -327,17 +355,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // --- LOGOUT ---
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.redAccent),
-              title: const Text('Logout',
-                  style: TextStyle(
-                      color: Colors.redAccent,
-                      fontWeight: FontWeight.bold)),
+              title: const Text(
+                'Logout',
+                style: TextStyle(
+                  color: Colors.redAccent,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               onTap: () {
                 showDialog(
                   context: context,
                   builder: (context) => AlertDialog(
                     title: const Text('Konfirmasi Logout'),
                     content: const Text(
-                        'Apakah Anda yakin ingin keluar dari aplikasi?'),
+                      'Apakah Anda yakin ingin keluar dari aplikasi?',
+                    ),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(context),
@@ -345,13 +377,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.redAccent),
+                          backgroundColor: Colors.redAccent,
+                        ),
                         onPressed: () {
                           Navigator.pop(context);
                           _logout(context);
                         },
-                        child: const Text('Logout',
-                            style: TextStyle(color: Colors.white)),
+                        child: const Text(
+                          'Logout',
+                          style: TextStyle(color: Colors.white),
+                        ),
                       ),
                     ],
                   ),

@@ -5,28 +5,41 @@ class LocationHelper {
   /// Get current user location
   static Future<Position?> getCurrentLocation() async {
     try {
-      // Check permission status
-      final permission = await Geolocator.checkPermission();
-      
-      if (permission == LocationPermission.denied) {
-        final result = await Geolocator.requestPermission();
-        if (result == LocationPermission.denied) {
-          print('Location permission denied');
-          return null;
-        }
-      }
-      
+      LocationPermission permission = await Geolocator.checkPermission();
+
       if (permission == LocationPermission.deniedForever) {
-        print('Location permission permanently denied');
         await Geolocator.openLocationSettings();
         return null;
       }
 
-      // Get current position
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied ||
+            permission == LocationPermission.deniedForever) {
+          return null;
+        }
+      }
+
+      // Coba last known position dulu (instan)
+      final lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null) {
+        print(
+          '>>> pakai lastKnown: ${lastKnown.latitude}, ${lastKnown.longitude}',
+        );
+        return lastKnown;
+      }
+
+      final position =
+          await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.low,
+          ).timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => throw Exception('GPS timeout'),
+          );
+
+      print(
+        '>>> pakai getCurrentPosition: ${position.latitude}, ${position.longitude}',
       );
-      
       return position;
     } catch (e) {
       print('Error getting location: $e');
