@@ -268,27 +268,21 @@ class _DetailPlanScreenState extends State<DetailPlanScreen>
                     children: [
                       const SizedBox(height: 4),
 
-                      // ── Info Cards Row ────────────────────────────
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _InfoCard(
-                              icon: Icons.calendar_today_rounded,
-                              label: 'Tanggal',
-                              value: _plan['date'] ?? '-',
-                              color: Colors.orange,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _InfoCard(
-                              icon: Icons.location_on_rounded,
-                              label: 'Lokasi',
-                              value: _plan['location'] ?? '-',
-                              color: Colors.blueAccent,
-                            ),
-                          ),
-                        ],
+                      // ── Info Cards ────────────────────────────
+                      _InfoCard(
+                        icon: Icons.calendar_today_rounded,
+                        label: 'Tanggal',
+                        value: _plan['date'] ?? '-',
+                        color: Colors.orange,
+                        horizontal: true,
+                      ),
+                      const SizedBox(height: 12),
+                      _InfoCard(
+                        icon: Icons.location_on_rounded,
+                        label: 'Lokasi',
+                        value: _plan['location'] ?? '-',
+                        color: Colors.blueAccent,
+                        horizontal: true,
                       ),
                       const SizedBox(height: 20),
 
@@ -497,18 +491,21 @@ class _InfoCard extends StatelessWidget {
   final String label;
   final String value;
   final Color color;
+  final bool horizontal;
 
   const _InfoCard({
     required this.icon,
     required this.label,
     required this.value,
     required this.color,
+    this.horizontal = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -520,36 +517,42 @@ class _InfoCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: color, size: 18),
+            child: Icon(icon, color: color, size: 20),
           ),
-          const SizedBox(height: 10),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.grey.shade500,
-              fontWeight: FontWeight.w500,
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade500,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1A237E),
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1A237E),
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
