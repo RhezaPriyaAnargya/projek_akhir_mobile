@@ -142,8 +142,10 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
     );
 
     if (picked != null) {
-      String start = "${picked.start.day} ${_months[picked.start.month - 1]}";
-      String end = "${picked.end.day} ${_months[picked.end.month - 1]}";
+      String start =
+          "${picked.start.day} ${_months[picked.start.month - 1]} ${picked.start.year}";
+      String end =
+          "${picked.end.day} ${_months[picked.end.month - 1]} ${picked.end.year}";
 
       setState(() {
         if (start == end) {
