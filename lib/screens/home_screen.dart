@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import 'profile_screen.dart';
 import 'detail_plan_screen.dart';
@@ -15,6 +14,11 @@ import 'travel_utilities_screen.dart';
 import 'game_screen.dart';
 import 'kesan_screen.dart';
 
+// Brand colors
+const Color _navy = Color(0xFF1A3557);
+const Color _teal = Color(0xFF2ABFBF);
+const Color _cream = Color(0xFFF5F0E8);
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -24,7 +28,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
-  String? _currentAvatarPath; // avatar shared state
+  String? _currentAvatarPath;
   String _currentUsername = 'Guest';
 
   @override
@@ -48,7 +52,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Dipanggil ProfileScreen saat avatar berubah
   void _onAvatarChanged(String? newPath) {
     setState(() => _currentAvatarPath = newPath);
   }
@@ -70,31 +73,63 @@ class _HomeScreenState extends State<HomeScreen> {
           ProfileScreen(onAvatarChanged: _onAvatarChanged),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blueAccent,
-        unselectedItemColor: Colors.grey,
-        onTap: _onItemTapped,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Beranda'),
-          BottomNavigationBarItem(icon: Icon(Icons.sync_alt), label: 'Tools'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.quiz_outlined),
-            label: 'Game',
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: _navy.withOpacity(0.08),
+              blurRadius: 16,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: BottomNavigationBar(
+          type: BottomNavigationBarType.fixed,
+          currentIndex: _selectedIndex,
+          selectedItemColor: _navy,
+          unselectedItemColor: Colors.grey.shade400,
+          backgroundColor: Colors.white,
+          elevation: 0,
+          selectedLabelStyle: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 11,
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            label: 'Kesan',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
-        ],
+          onTap: _onItemTapped,
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home_rounded),
+              label: 'Beranda',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.sync_alt_outlined),
+              activeIcon: Icon(Icons.sync_alt),
+              label: 'Tools',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.quiz_outlined),
+              activeIcon: Icon(Icons.quiz_rounded),
+              label: 'Game',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.chat_bubble_outline_rounded),
+              activeIcon: Icon(Icons.chat_bubble_rounded),
+              label: 'Kesan',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline_rounded),
+              activeIcon: Icon(Icons.person_rounded),
+              label: 'Profil',
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-// ─── HomeView ─────────────────────────────────────────────────────────────────
+// ─── HomeView ──────────────────────────────────────────────────────────────────
 
 class HomeView extends StatefulWidget {
   final String? avatarPath;
@@ -118,18 +153,18 @@ class _HomeViewState extends State<HomeView> {
   int _unreadCount = 0;
 
   @override
-  void dispose() {
-    _homeMapController.dispose();
-    super.dispose();
-  }
-
-  @override
   void initState() {
     super.initState();
     _refreshPlans();
     _loadWeather();
     _loadCurrentLocation();
     _loadUnreadCount();
+  }
+
+  @override
+  void dispose() {
+    _homeMapController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUnreadCount() async {
@@ -141,14 +176,9 @@ class _HomeViewState extends State<HomeView> {
     final position = await LocationHelper.getCurrentLocation();
     if (position != null && mounted) {
       final latLng = LocationHelper.positionToLatLng(position);
-      setState(() {
-        _currentLocation = latLng;
-      });
-      // Gerakkan kamera setelah dapat lokasi
+      setState(() => _currentLocation = latLng);
       await Future.delayed(const Duration(milliseconds: 300));
-      if (mounted) {
-        _homeMapController.move(latLng, 15);
-      }
+      if (mounted) _homeMapController.move(latLng, 15);
     }
   }
 
@@ -213,17 +243,23 @@ class _HomeViewState extends State<HomeView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: _cream,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: _navy,
         elevation: 0,
-        title: const Text(
-          'SoloTrek',
-          style: TextStyle(
-            color: Colors.blueAccent,
-            fontWeight: FontWeight.bold,
-            fontSize: 24,
-          ),
+        title: Row(
+          children: [
+            Image.asset('assets/icon/app_icon.png', width: 28, height: 28),
+            const SizedBox(width: 8),
+            const Text(
+              'SoloTrek',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+              ),
+            ),
+          ],
         ),
         actions: [
           Stack(
@@ -231,8 +267,8 @@ class _HomeViewState extends State<HomeView> {
             children: [
               IconButton(
                 icon: const Icon(
-                  Icons.notifications_none,
-                  color: Colors.blueAccent,
+                  Icons.notifications_none_rounded,
+                  color: Colors.white,
                 ),
                 onPressed: _showNotificationPanel,
               ),
@@ -243,7 +279,7 @@ class _HomeViewState extends State<HomeView> {
                   child: Container(
                     padding: const EdgeInsets.all(2),
                     decoration: const BoxDecoration(
-                      color: Colors.red,
+                      color: Colors.redAccent,
                       shape: BoxShape.circle,
                     ),
                     constraints: const BoxConstraints(
@@ -266,7 +302,7 @@ class _HomeViewState extends State<HomeView> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.blueAccent,
+        backgroundColor: _teal,
         elevation: 4,
         onPressed: () async {
           final result = await Navigator.push(
@@ -286,11 +322,11 @@ class _HomeViewState extends State<HomeView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildGreetingAndWeather(),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             _buildAIBanner(),
-            const SizedBox(height: 24),
-            _buildMapPlaceholder(),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
+            _buildMapSection(),
+            const SizedBox(height: 20),
             _buildMyPlansList(),
             const SizedBox(height: 80),
           ],
@@ -300,9 +336,7 @@ class _HomeViewState extends State<HomeView> {
   }
 
   Widget _buildGreetingAndWeather() {
-    // Gunakan avatarPath dari parent (realtime)
     final avatarPath = widget.avatarPath;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -314,50 +348,68 @@ class _HomeViewState extends State<HomeView> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Halo, ${widget.username}!',
+                    'Halo, ${widget.username}! 👋',
                     style: const TextStyle(
-                      fontSize: 22,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
+                      color: _navy,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const Text(
                     'Siap menjelajah hari ini?',
-                    style: TextStyle(color: Colors.grey, fontSize: 14),
+                    style: TextStyle(color: Colors.grey, fontSize: 13),
                   ),
                 ],
               ),
             ),
-            CircleAvatar(
-              radius: 25,
-              backgroundColor: Colors.blueAccent,
-              backgroundImage:
-                  avatarPath != null && File(avatarPath).existsSync()
-                  ? FileImage(File(avatarPath)) as ImageProvider
-                  : null,
-              child: avatarPath == null || !File(avatarPath).existsSync()
-                  ? const Icon(Icons.person, size: 25, color: Colors.white)
-                  : null,
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: _teal, width: 2),
+              ),
+              child: CircleAvatar(
+                radius: 24,
+                backgroundColor: _navy,
+                backgroundImage:
+                    avatarPath != null && File(avatarPath).existsSync()
+                    ? FileImage(File(avatarPath)) as ImageProvider
+                    : null,
+                child: avatarPath == null || !File(avatarPath).existsSync()
+                    ? const Icon(Icons.person, size: 24, color: Colors.white)
+                    : null,
+              ),
             ),
           ],
         ),
         const SizedBox(height: 12),
+        // Weather card
         _isLoadingWeather
             ? Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
-                  vertical: 12,
+                  vertical: 14,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _navy.withOpacity(0.08),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: const SizedBox(
-                  height: 50,
+                  height: 40,
                   child: Center(
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: _teal,
+                    ),
                   ),
                 ),
               )
@@ -374,11 +426,18 @@ class _HomeViewState extends State<HomeView> {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
-                    vertical: 12,
+                    vertical: 14,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(12),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _navy.withOpacity(0.08),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Row(
                     children: [
@@ -386,7 +445,7 @@ class _HomeViewState extends State<HomeView> {
                         WeatherHelper.getWeatherEmoji(
                           _weatherData?.icon ?? '01d',
                         ),
-                        style: const TextStyle(fontSize: 28),
+                        style: const TextStyle(fontSize: 32),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -397,29 +456,34 @@ class _HomeViewState extends State<HomeView> {
                               _weatherData?.city ?? 'Unknown',
                               style: const TextStyle(
                                 fontSize: 12,
-                                color: Colors.blueAccent,
+                                color: _teal,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
                             Text(
                               '${_weatherData?.temperature.toStringAsFixed(1)}°C',
                               style: const TextStyle(
-                                fontSize: 16,
+                                fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.blueAccent,
+                                color: _navy,
                               ),
                             ),
                             Text(
                               _weatherData?.description ?? 'Loading...',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.blueAccent,
+                                color: Colors.grey.shade500,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
+                      ),
+                      Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 14,
+                        color: Colors.grey.shade400,
                       ),
                     ],
                   ),
@@ -434,51 +498,55 @@ class _HomeViewState extends State<HomeView> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Colors.blueAccent, Colors.lightBlue],
+          colors: [_navy, Color(0xFF254878)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.blueAccent.withOpacity(0.3),
-            blurRadius: 10,
+            color: _navy.withOpacity(0.3),
+            blurRadius: 12,
             offset: const Offset(0, 5),
           ),
         ],
       ),
       child: Row(
         children: [
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Trekker AI Assistant',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Text(
                   'Biar AI yang merancang jadwal liburanmu secara otomatis.',
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.75),
+                    fontSize: 13,
+                  ),
                 ),
               ],
             ),
           ),
+          const SizedBox(width: 16),
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: const BoxDecoration(
-              color: Colors.white24,
+            decoration: BoxDecoration(
+              color: _teal.withOpacity(0.3),
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.auto_awesome,
               color: Colors.white,
-              size: 32,
+              size: 28,
             ),
           ),
         ],
@@ -486,26 +554,36 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  Widget _buildMapPlaceholder() {
+  Widget _buildMapSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
           'Lokasi Saat Ini',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: _navy,
+          ),
         ),
-        const SizedBox(height: 12),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            height: 200,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
+        const SizedBox(height: 10),
+        Container(
+          height: 200,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: _navy.withOpacity(0.1),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
             child: FlutterMap(
-              mapController: _homeMapController, // ← tambah ini
+              mapController: _homeMapController,
               options: MapOptions(
                 initialCenter: _currentLocation,
                 initialZoom: 15,
@@ -519,17 +597,25 @@ class _HomeViewState extends State<HomeView> {
                   markers: [
                     Marker(
                       point: _currentLocation,
-                      width: 40,
-                      height: 40,
+                      width: 44,
+                      height: 44,
                       child: Container(
-                        decoration: const BoxDecoration(
-                          color: Colors.blueAccent,
+                        decoration: BoxDecoration(
+                          color: _navy,
                           shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _navy.withOpacity(0.4),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
                         child: const Icon(
                           Icons.location_on,
                           color: Colors.white,
-                          size: 18,
+                          size: 20,
                         ),
                       ),
                     ),
@@ -547,63 +633,107 @@ class _HomeViewState extends State<HomeView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12),
+        // Search bar
+        Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: _navy.withOpacity(0.07),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
           child: TextField(
             onChanged: _filterPlans,
             decoration: InputDecoration(
               hintText: 'Cari rencana perjalanan...',
-              prefixIcon: const Icon(Icons.search, color: Colors.grey),
+              hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+              prefixIcon: const Icon(Icons.search_rounded, color: _teal),
               suffixIcon: _searchQuery.isNotEmpty
                   ? GestureDetector(
                       onTap: () => _filterPlans(''),
-                      child: const Icon(Icons.close, color: Colors.grey),
+                      child: Icon(
+                        Icons.close_rounded,
+                        color: Colors.grey.shade400,
+                      ),
                     )
                   : null,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Colors.blueAccent),
-              ),
+              filled: true,
+              fillColor: Colors.white,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16,
-                vertical: 12,
+                vertical: 14,
               ),
             ),
           ),
         ),
+
+        // Header
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text(
-              'Rencana Perjalanan Saya',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              'Rencana Perjalanan',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: _navy,
+              ),
             ),
             if (_searchQuery.isNotEmpty)
-              Text(
-                '${_filteredPlans.length} hasil',
-                style: const TextStyle(fontSize: 14, color: Colors.grey),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: _teal.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${_filteredPlans.length} hasil',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: _teal,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
           ],
         ),
         const SizedBox(height: 12),
+
         _filteredPlans.isEmpty
             ? Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Text(
-                    _searchQuery.isEmpty
-                        ? 'Belum ada rencana perjalanan.\nKetuk tombol + untuk mulai!'
-                        : 'Tidak ada rencana yang cocok\ndengan "$_searchQuery"',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey.shade600),
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.luggage_rounded,
+                        size: 48,
+                        color: Colors.grey.shade300,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        _searchQuery.isEmpty
+                            ? 'Belum ada rencana perjalanan.\nKetuk tombol + untuk mulai!'
+                            : 'Tidak ada rencana yang cocok\ndengan "$_searchQuery"',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.grey.shade500,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               )
@@ -635,8 +765,8 @@ class _HomeViewState extends State<HomeView> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
-              blurRadius: 5,
+              color: _navy.withOpacity(0.07),
+              blurRadius: 10,
               offset: const Offset(0, 3),
             ),
           ],
@@ -646,12 +776,16 @@ class _HomeViewState extends State<HomeView> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
+                color: _navy.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.flight_takeoff, color: Colors.blueAccent),
+              child: const Icon(
+                Icons.flight_takeoff_rounded,
+                color: _navy,
+                size: 20,
+              ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -659,28 +793,60 @@ class _HomeViewState extends State<HomeView> {
                   Text(
                     plan['title'],
                     style: const TextStyle(
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.bold,
+                      color: _navy,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    plan['date'],
-                    style: const TextStyle(color: Colors.grey, fontSize: 13),
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.calendar_today_rounded,
+                        size: 11,
+                        color: Colors.grey.shade400,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        plan['date'],
+                        style: TextStyle(
+                          color: Colors.grey.shade500,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    plan['location'],
-                    style: const TextStyle(
-                      color: Colors.blueAccent,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.location_on_rounded,
+                        size: 11,
+                        color: _teal,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          plan['location'],
+                          style: const TextStyle(
+                            color: _teal,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 14,
+              color: Colors.grey.shade300,
+            ),
           ],
         ),
       ),
@@ -688,7 +854,7 @@ class _HomeViewState extends State<HomeView> {
   }
 }
 
-// ─── Notification Bottom Sheet ────────────────────────────────────────────────
+// ─── Notification Bottom Sheet ─────────────────────────────────────────────────
 
 class _NotificationBottomSheet extends StatefulWidget {
   final List<NotifItem> notifications;
@@ -732,7 +898,7 @@ class _NotificationBottomSheetState extends State<_NotificationBottomSheet> {
         return Container(
           decoration: const BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
             children: [
@@ -755,6 +921,7 @@ class _NotificationBottomSheetState extends State<_NotificationBottomSheet> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
+                        color: _navy,
                       ),
                     ),
                     if (_notifs.isNotEmpty)
@@ -764,7 +931,7 @@ class _NotificationBottomSheetState extends State<_NotificationBottomSheet> {
                           setState(() => _notifs = []);
                         },
                         icon: const Icon(
-                          Icons.delete_outline,
+                          Icons.delete_outline_rounded,
                           size: 18,
                           color: Colors.redAccent,
                         ),
@@ -779,7 +946,7 @@ class _NotificationBottomSheetState extends State<_NotificationBottomSheet> {
                   ],
                 ),
               ),
-              const Divider(height: 1),
+              Divider(height: 1, color: Colors.grey.shade200),
               Expanded(
                 child: _notifs.isEmpty
                     ? Center(
@@ -787,14 +954,17 @@ class _NotificationBottomSheetState extends State<_NotificationBottomSheet> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              Icons.notifications_none,
-                              size: 60,
+                              Icons.notifications_none_rounded,
+                              size: 56,
                               color: Colors.grey.shade300,
                             ),
                             const SizedBox(height: 12),
                             Text(
                               'Belum ada notifikasi',
-                              style: TextStyle(color: Colors.grey.shade500),
+                              style: TextStyle(
+                                color: Colors.grey.shade400,
+                                fontSize: 14,
+                              ),
                             ),
                           ],
                         ),
@@ -802,8 +972,11 @@ class _NotificationBottomSheetState extends State<_NotificationBottomSheet> {
                     : ListView.separated(
                         controller: scrollController,
                         itemCount: _notifs.length,
-                        separatorBuilder: (_, __) =>
-                            const Divider(height: 1, indent: 70),
+                        separatorBuilder: (_, __) => Divider(
+                          height: 1,
+                          indent: 70,
+                          color: Colors.grey.shade100,
+                        ),
                         itemBuilder: (context, index) {
                           final notif = _notifs[index];
                           final isReminder = notif.id.startsWith('reminder');
@@ -818,15 +991,15 @@ class _NotificationBottomSheetState extends State<_NotificationBottomSheet> {
                               decoration: BoxDecoration(
                                 color: isReminder
                                     ? Colors.orange.shade50
-                                    : Colors.blue.shade50,
+                                    : _navy.withOpacity(0.08),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
-                                isReminder ? Icons.alarm : Icons.flight_takeoff,
-                                color: isReminder
-                                    ? Colors.orange
-                                    : Colors.blueAccent,
-                                size: 22,
+                                isReminder
+                                    ? Icons.alarm_rounded
+                                    : Icons.flight_takeoff_rounded,
+                                color: isReminder ? Colors.orange : _navy,
+                                size: 20,
                               ),
                             ),
                             title: Text(
@@ -834,6 +1007,7 @@ class _NotificationBottomSheetState extends State<_NotificationBottomSheet> {
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
+                                color: _navy,
                               ),
                             ),
                             subtitle: Column(

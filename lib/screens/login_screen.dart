@@ -11,43 +11,58 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
-  final _formKey = GlobalKey<FormState>(); // Key untuk Form Validasi
-
-  final TextEditingController _usernameController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-
-  final LocalAuthentication _localAuth = LocalAuthentication();
-  final DatabaseHelper _dbHelper = DatabaseHelper();
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
+  final _formKey = GlobalKey<FormState>();
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _localAuth = LocalAuthentication();
+  final _dbHelper = DatabaseHelper();
 
   bool _isLoading = false;
   bool _obscurePassword = true;
 
+  late AnimationController _animController;
+  late Animation<double> _fadeAnim;
+  late Animation<Offset> _slideAnim;
+
+  // Brand colors dari logo SoloTrek
+  static const Color _navy = Color(0xFF1A3557);
+  static const Color _teal = Color(0xFF2ABFBF);
+  static const Color _cream = Color(0xFFF5F0E8);
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
+    _slideAnim = Tween<Offset>(
+      begin: const Offset(0, 0.12),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOut));
+    _animController.forward();
+  }
+
   @override
   void dispose() {
+    _animController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
   Future<void> _handleLogin() async {
-    // Cek form validasi
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isLoading = true);
 
     final username = _usernameController.text.trim();
     final password = _passwordController.text;
+    final loginSuccess = await _dbHelper.loginUser(username, password);
 
-    bool loginSuccess = await _dbHelper.loginUser(username, password);
-
-    setState(() {
-      _isLoading = false;
-    });
+    setState(() => _isLoading = false);
 
     if (loginSuccess && mounted) {
       Navigator.pushReplacement(
@@ -55,24 +70,25 @@ class _LoginScreenState extends State<LoginScreen> {
         MaterialPageRoute(builder: (context) => const HomeScreen()),
       );
     } else if (mounted) {
-      // Error handling jika akun tidak ditemukan / salah sandi
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Row(
+        SnackBar(
+          content: const Row(
             children: [
-              Icon(Icons.error_outline, color: Colors.white),
-              SizedBox(width: 10),
-              Expanded(child: Text('Username atau Password salah!')),
+              Icon(Icons.error_outline, color: Colors.white, size: 18),
+              SizedBox(width: 8),
+              Text('Username atau Password salah!'),
             ],
           ),
           backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       );
     }
   }
 
-  // ... (Fungsi _handleBiometricLogin BIAKARKAN SAMA PERSIS SEPERTI SEBELUMNYA) ...
   Future<void> _handleBiometricLogin() async {
     try {
       final session = await _dbHelper.getSavedSessionForBiometric();
@@ -80,22 +96,25 @@ class _LoginScreenState extends State<LoginScreen> {
       if (session == null || session['is_biometric_enabled'] == 0) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Login Sidik Jari belum aktif. Silakan login manual dan aktifkan di menu Profil.',
+            SnackBar(
+              content: const Text(
+                'Login Sidik Jari belum aktif. Login manual dan aktifkan di Profil.',
               ),
-              backgroundColor: Colors.orange,
+              backgroundColor: Colors.orange.shade700,
               behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           );
         }
         return;
       }
 
-      bool canCheckBiometrics = await _localAuth.canCheckBiometrics;
-      bool isSupported = await _localAuth.isDeviceSupported();
+      final canCheck = await _localAuth.canCheckBiometrics;
+      final isSupported = await _localAuth.isDeviceSupported();
 
-      if (!canCheckBiometrics || !isSupported) {
+      if (!canCheck || !isSupported) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -106,7 +125,7 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      bool didAuthenticate = await _localAuth.authenticate(
+      final didAuth = await _localAuth.authenticate(
         localizedReason:
             'Gunakan sidik jari untuk masuk sebagai ${session['username']}',
         options: const AuthenticationOptions(
@@ -115,7 +134,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
 
-      if (didAuthenticate && mounted) {
+      if (didAuth && mounted) {
         await _dbHelper.reactivateSession();
         Navigator.pushReplacement(
           context,
@@ -130,165 +149,335 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
-          // Bungkus Column dengan Form
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 0),
-                Image.asset(
-                  'assets/icon/app_icon.png',
-                  width: 200,
-                  height: 200,
+      backgroundColor: _cream,
+      body: Stack(
+        children: [
+          // ── Background Wave Decoration ────────────────────────────
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: 280,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [_navy, Color(0xFF254878)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
                 ),
-                const SizedBox(height: 40),
-
-                TextFormField(
-                  controller: _usernameController,
-                  decoration: InputDecoration(
-                    labelText: 'Username',
-                    prefixIcon: const Icon(Icons.person_outline),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty)
-                      return 'Silakan masukkan username';
-                    return null;
-                  },
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(40),
+                  bottomRight: Radius.circular(40),
                 ),
-                const SizedBox(height: 20),
-
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  decoration: InputDecoration(
-                    labelText: 'Password',
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_off
-                            : Icons.visibility,
-                      ),
-                      onPressed: () =>
-                          setState(() => _obscurePassword = !_obscurePassword),
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty)
-                      return 'Silakan masukkan password';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 32),
-
-                SizedBox(
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _handleLogin,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueAccent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 24,
-                            width: 24,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Text(
-                            'Login',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                const Row(
-                  children: [
-                    Expanded(child: Divider(thickness: 1)),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Text(
-                        'atau masuk dengan',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    ),
-                    Expanded(child: Divider(thickness: 1)),
-                  ],
-                ),
-                const SizedBox(height: 24),
-
-                Center(
-                  child: InkWell(
-                    onTap: _handleBiometricLogin,
-                    borderRadius: BorderRadius.circular(50),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.blue.shade200,
-                          width: 2,
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.fingerprint,
-                        size: 40,
-                        color: Colors.blueAccent,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 25),
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text('Belum punya akun?'),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const RegisterScreen(),
-                          ),
-                        );
-                      },
-                      child: const Text(
-                        'Daftar di sini',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blueAccent,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
           ),
-        ),
+
+          // Teal accent circle kanan atas
+          Positioned(
+            top: -40,
+            right: -40,
+            child: Container(
+              width: 160,
+              height: 160,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _teal.withOpacity(0.15),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 20,
+            left: -30,
+            child: Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.05),
+              ),
+            ),
+          ),
+
+          // ── Main Content ──────────────────────────────────────────
+          SafeArea(
+            child: SingleChildScrollView(
+              child: FadeTransition(
+                opacity: _fadeAnim,
+                child: SlideTransition(
+                  position: _slideAnim,
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 16),
+
+                      // ── Logo ─────────────────────────────────────
+                      Hero(
+                        tag: 'app_logo',
+                        child: Image.asset(
+                          'assets/icon/app_icon.png',
+                          width: 120,
+                          height: 120,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Selamat Datang!',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Masuk untuk melanjutkan perjalananmu',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.7),
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // ── Form Card ─────────────────────────────────
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: _navy.withOpacity(0.12),
+                                blurRadius: 24,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: Form(
+                            key: _formKey,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // Username
+                                _buildLabel('Username'),
+                                const SizedBox(height: 8),
+                                TextFormField(
+                                  controller: _usernameController,
+                                  decoration: _inputDecoration(
+                                    hint: 'Masukkan username kamu',
+                                    icon: Icons.person_outline_rounded,
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Silakan masukkan username';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 20),
+
+                                // Password
+                                _buildLabel('Password'),
+                                const SizedBox(height: 8),
+                                TextFormField(
+                                  controller: _passwordController,
+                                  obscureText: _obscurePassword,
+                                  decoration: _inputDecoration(
+                                    hint: 'Masukkan password kamu',
+                                    icon: Icons.lock_outline_rounded,
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        _obscurePassword
+                                            ? Icons.visibility_off_outlined
+                                            : Icons.visibility_outlined,
+                                        color: Colors.grey,
+                                        size: 20,
+                                      ),
+                                      onPressed: () => setState(
+                                        () => _obscurePassword =
+                                            !_obscurePassword,
+                                      ),
+                                    ),
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Silakan masukkan password';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 28),
+
+                                // ── Login + Biometric Row ─────────────
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: SizedBox(
+                                        height: 52,
+                                        child: ElevatedButton(
+                                          onPressed: _isLoading
+                                              ? null
+                                              : _handleLogin,
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: _navy,
+                                            disabledBackgroundColor: _navy
+                                                .withOpacity(0.5),
+                                            elevation: 0,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
+                                            ),
+                                          ),
+                                          child: _isLoading
+                                              ? const SizedBox(
+                                                  height: 22,
+                                                  width: 22,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        color: Colors.white,
+                                                        strokeWidth: 2.5,
+                                                      ),
+                                                )
+                                              : const Text(
+                                                  'Masuk',
+                                                  style: TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Tooltip(
+                                      message: 'Masuk dengan Sidik Jari',
+                                      child: InkWell(
+                                        onTap: _handleBiometricLogin,
+                                        borderRadius: BorderRadius.circular(14),
+                                        child: Container(
+                                          height: 52,
+                                          width: 52,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
+                                            border: Border.all(
+                                              color: _teal,
+                                              width: 1.5,
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: _teal.withOpacity(0.15),
+                                                blurRadius: 8,
+                                                offset: const Offset(0, 3),
+                                              ),
+                                            ],
+                                          ),
+                                          child: const Icon(
+                                            Icons.fingerprint_rounded,
+                                            size: 26,
+                                            color: _teal,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // ── Register Link ─────────────────────────────
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Belum punya akun? ',
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const RegisterScreen(),
+                              ),
+                            ),
+                            child: const Text(
+                              'Daftar di sini',
+                              style: TextStyle(
+                                color: _teal,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLabel(String text) {
+    return Text(
+      text,
+      style: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: _navy,
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration({
+    required String hint,
+    required IconData icon,
+    Widget? suffixIcon,
+  }) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+      prefixIcon: Icon(icon, color: _navy.withOpacity(0.6), size: 20),
+      suffixIcon: suffixIcon,
+      filled: true,
+      fillColor: const Color(0xFFF8F9FF),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade200),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade200),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: _teal, width: 1.5),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.redAccent),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
       ),
     );
   }
