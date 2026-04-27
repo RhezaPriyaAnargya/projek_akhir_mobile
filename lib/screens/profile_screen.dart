@@ -7,8 +7,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import 'login_screen.dart';
 
-// Callback global untuk update avatar di HomeView
 typedef AvatarChangedCallback = void Function(String? newPath);
+
+const Color _navy = Color(0xFF1A3557);
+const Color _teal = Color(0xFF2ABFBF);
+const Color _cream = Color(0xFFF5F0E8);
 
 class ProfileScreen extends StatefulWidget {
   final AvatarChangedCallback? onAvatarChanged;
@@ -22,7 +25,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final DatabaseHelper _dbHelper = DatabaseHelper();
 
-  String _username = "Loading...";
+  String _username = 'Loading...';
   String? _avatarPath;
   final ImagePicker _imagePicker = ImagePicker();
   bool _isBiometricEnabled = false;
@@ -57,61 +60,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _pickImage() async {
-    // Pilih sumber foto
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 12, bottom: 8),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'Pilih Foto Profil',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 4),
+                width: 40,
+                height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.photo_library,
-                  color: Colors.blueAccent,
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              title: const Text('Pilih dari Galeri'),
-              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
-            ),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  shape: BoxShape.circle,
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text(
+                  'Pilih Foto Profil',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: _navy,
+                  ),
                 ),
-                child: const Icon(Icons.camera_alt, color: Colors.blueAccent),
               ),
-              title: const Text('Ambil dari Kamera'),
-              onTap: () => Navigator.pop(ctx, ImageSource.camera),
-            ),
-            const SizedBox(height: 16),
-          ],
+              _bottomSheetTile(
+                icon: Icons.photo_library_rounded,
+                label: 'Pilih dari Galeri',
+                onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+              ),
+              _bottomSheetTile(
+                icon: Icons.camera_alt_rounded,
+                label: 'Ambil dari Kamera',
+                onTap: () => Navigator.pop(ctx, ImageSource.camera),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );
@@ -121,19 +114,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final XFile? image = await _imagePicker.pickImage(source: source);
     if (image == null) return;
 
-    // Crop foto 1:1
     final croppedFile = await ImageCropper().cropImage(
       sourcePath: image.path,
       aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
       uiSettings: [
         AndroidUiSettings(
           toolbarTitle: 'Atur Foto Profil',
-          toolbarColor: Colors.blueAccent,
+          toolbarColor: _navy,
           toolbarWidgetColor: Colors.white,
-          activeControlsWidgetColor: Colors.blueAccent,
+          activeControlsWidgetColor: _teal,
           initAspectRatio: CropAspectRatioPreset.square,
           lockAspectRatio: true,
-          hideBottomControls: false,
         ),
         IOSUiSettings(
           title: 'Atur Foto Profil',
@@ -151,19 +142,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
     if (success) {
       setState(() => _avatarPath = croppedFile.path);
-
-      // Notify HomeView untuk update avatar
       widget.onAvatarChanged?.call(croppedFile.path);
 
-      // Simpan ke SharedPreferences agar HomeView bisa load tanpa relog
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('avatar_path_$_username', croppedFile.path);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Foto profil berhasil diperbarui! ✅'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white, size: 18),
+                SizedBox(width: 8),
+                Text('Foto profil berhasil diperbarui!'),
+              ],
+            ),
+            backgroundColor: Colors.green.shade600,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
       }
@@ -183,6 +181,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   : 'Login Sidik Jari Dimatikan',
             ),
             duration: const Duration(seconds: 1),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
       }
@@ -201,6 +203,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             value ? '🔔 Notifikasi Diaktifkan' : '🔕 Notifikasi Dimatikan',
           ),
           duration: const Duration(seconds: 1),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       );
     }
@@ -212,7 +218,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => const LoginScreen()),
-        (Route<dynamic> route) => false,
+        (route) => false,
       );
     }
   }
@@ -220,181 +226,372 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text(
-          'Profil & Pengaturan',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.blueAccent,
-        elevation: 0,
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            const SizedBox(height: 30),
-
-            // --- FOTO PROFIL ---
-            Center(
-              child: Stack(
-                alignment: Alignment.bottomRight,
+      backgroundColor: _cream,
+      body: CustomScrollView(
+        slivers: [
+          // ── Hero Header ───────────────────────────────────────────
+          SliverAppBar(
+            expandedHeight: 240,
+            pinned: true,
+            backgroundColor: _navy,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            automaticallyImplyLeading: false,
+            title: const Text(
+              'Profil & Pengaturan',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            flexibleSpace: FlexibleSpaceBar(
+              background: Stack(
+                fit: StackFit.expand,
                 children: [
-                  GestureDetector(
-                    onTap: _pickImage,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.blueAccent.withOpacity(0.3),
-                          width: 3,
-                        ),
-                      ),
-                      child: CircleAvatar(
-                        radius: 60,
-                        backgroundColor: Colors.blueAccent,
-                        backgroundImage:
-                            _avatarPath != null &&
-                                File(_avatarPath!).existsSync()
-                            ? FileImage(File(_avatarPath!)) as ImageProvider
-                            : null,
-                        child:
-                            _avatarPath == null ||
-                                !File(_avatarPath!).existsSync()
-                            ? const Icon(
-                                Icons.person,
-                                size: 60,
-                                color: Colors.white,
-                              )
-                            : null,
+                  // Gradient
+                  Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [_navy, Color(0xFF254878)],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
                       ),
                     ),
                   ),
-                  GestureDetector(
-                    onTap: _pickImage,
+                  // Teal circle dekorasi
+                  Positioned(
+                    top: -30,
+                    right: -30,
                     child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: const BoxDecoration(
-                        color: Colors.blueAccent,
+                      width: 160,
+                      height: 160,
+                      decoration: BoxDecoration(
                         shape: BoxShape.circle,
+                        color: _teal.withOpacity(0.15),
                       ),
-                      child: const Icon(
-                        Icons.camera_alt,
-                        color: Colors.white,
-                        size: 18,
-                      ),
+                    ),
+                  ),
+                  // Avatar + nama
+                  Positioned(
+                    bottom: 24,
+                    left: 0,
+                    right: 0,
+                    child: Column(
+                      children: [
+                        Stack(
+                          alignment: Alignment.bottomRight,
+                          children: [
+                            GestureDetector(
+                              onTap: _pickImage,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: _teal, width: 3),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: _navy.withOpacity(0.3),
+                                      blurRadius: 12,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: CircleAvatar(
+                                  radius: 52,
+                                  backgroundColor: _navy,
+                                  backgroundImage:
+                                      _avatarPath != null &&
+                                          File(_avatarPath!).existsSync()
+                                      ? FileImage(File(_avatarPath!))
+                                            as ImageProvider
+                                      : null,
+                                  child:
+                                      _avatarPath == null ||
+                                          !File(_avatarPath!).existsSync()
+                                      ? const Icon(
+                                          Icons.person,
+                                          size: 52,
+                                          color: Colors.white,
+                                        )
+                                      : null,
+                                ),
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: _pickImage,
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: const BoxDecoration(
+                                  color: _teal,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.camera_alt_rounded,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          _username,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Traveler SoloTrek',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.7),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: _pickImage,
-              child: const Text(
-                'Ubah Foto Profil',
-                style: TextStyle(color: Colors.blueAccent, fontSize: 13),
-              ),
-            ),
+          ),
 
-            // --- USERNAME ---
-            Text(
-              _username,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const Text(
-              'Traveler SoloTrek',
-              style: TextStyle(color: Colors.grey, fontSize: 16),
-            ),
+          // ── Body ──────────────────────────────────────────────────
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 4),
 
-            const SizedBox(height: 32),
-            const Divider(thickness: 1),
-
-            // --- TOGGLE NOTIFIKASI ---
-            SwitchListTile(
-              title: const Text(
-                'Notifikasi',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: Text(
-                _isNotificationEnabled
-                    ? 'Pengingat rencana perjalanan aktif'
-                    : 'Notifikasi dimatikan',
-              ),
-              secondary: Icon(
-                _isNotificationEnabled
-                    ? Icons.notifications_active
-                    : Icons.notifications_off,
-                color: _isNotificationEnabled ? Colors.blueAccent : Colors.grey,
-              ),
-              value: _isNotificationEnabled,
-              activeColor: Colors.blueAccent,
-              onChanged: _toggleNotification,
-            ),
-
-            const Divider(thickness: 1),
-
-            // --- TOGGLE BIOMETRIK ---
-            SwitchListTile(
-              title: const Text(
-                'Login dengan Sidik Jari',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: const Text('Gunakan biometrik untuk masuk lebih cepat'),
-              secondary: const Icon(
-                Icons.fingerprint,
-                color: Colors.blueAccent,
-              ),
-              value: _isBiometricEnabled,
-              activeColor: Colors.blueAccent,
-              onChanged: _toggleBiometric,
-            ),
-
-            const Divider(thickness: 1),
-
-            // --- LOGOUT ---
-            ListTile(
-              leading: const Icon(Icons.logout, color: Colors.redAccent),
-              title: const Text(
-                'Logout',
-                style: TextStyle(
-                  color: Colors.redAccent,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              onTap: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Konfirmasi Logout'),
-                    content: const Text(
-                      'Apakah Anda yakin ingin keluar dari aplikasi?',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Batal'),
+                  // Ubah foto
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: _pickImage,
+                      icon: const Icon(
+                        Icons.edit_rounded,
+                        color: _teal,
+                        size: 16,
                       ),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.redAccent,
+                      label: const Text(
+                        'Ubah Foto Profil',
+                        style: TextStyle(color: _teal, fontSize: 13),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // ── Pengaturan section ────────────────────────────
+                  _sectionLabel('Pengaturan'),
+                  const SizedBox(height: 10),
+                  _settingsCard(
+                    children: [
+                      _settingsTile(
+                        icon: _isNotificationEnabled
+                            ? Icons.notifications_active_rounded
+                            : Icons.notifications_off_rounded,
+                        iconColor: _isNotificationEnabled ? _teal : Colors.grey,
+                        title: 'Notifikasi',
+                        subtitle: _isNotificationEnabled
+                            ? 'Pengingat rencana perjalanan aktif'
+                            : 'Notifikasi dimatikan',
+                        trailing: Switch(
+                          value: _isNotificationEnabled,
+                          activeColor: _teal,
+                          onChanged: _toggleNotification,
                         ),
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _logout(context);
-                        },
-                        child: const Text(
-                          'Logout',
-                          style: TextStyle(color: Colors.white),
+                      ),
+                      Divider(height: 1, color: Colors.grey.shade100),
+                      _settingsTile(
+                        icon: Icons.fingerprint_rounded,
+                        iconColor: _navy,
+                        title: 'Login Sidik Jari',
+                        subtitle: 'Gunakan biometrik untuk masuk lebih cepat',
+                        trailing: Switch(
+                          value: _isBiometricEnabled,
+                          activeColor: _teal,
+                          onChanged: _toggleBiometric,
                         ),
                       ),
                     ],
                   ),
-                );
-              },
+                  const SizedBox(height: 20),
+
+                  // ── Akun section ──────────────────────────────────
+                  _sectionLabel('Akun'),
+                  const SizedBox(height: 10),
+                  _settingsCard(
+                    children: [
+                      _settingsTile(
+                        icon: Icons.logout_rounded,
+                        iconColor: Colors.redAccent,
+                        title: 'Logout',
+                        subtitle: 'Keluar dari akun SoloTrek',
+                        titleColor: Colors.redAccent,
+                        onTap: () => showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            title: const Text(
+                              'Konfirmasi Logout',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: _navy,
+                              ),
+                            ),
+                            content: const Text(
+                              'Apakah kamu yakin ingin keluar dari aplikasi?',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text(
+                                  'Batal',
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                              ),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.redAccent,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  _logout(context);
+                                },
+                                child: const Text(
+                                  'Logout',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+
+                  // App version
+                  Center(
+                    child: Text(
+                      'SoloTrek v1.0.0',
+                      style: TextStyle(
+                        color: Colors.grey.shade400,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: _navy,
+          letterSpacing: 0.5,
         ),
+      ),
+    );
+  }
+
+  Widget _settingsCard({required List<Widget> children}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: _navy.withOpacity(0.07),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(children: children),
+    );
+  }
+
+  Widget _settingsTile({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    Color? titleColor,
+    Widget? trailing,
+    VoidCallback? onTap,
+  }) {
+    return ListTile(
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      leading: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: iconColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: iconColor, size: 20),
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+          color: titleColor ?? _navy,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+      ),
+      trailing:
+          trailing ??
+          Icon(
+            Icons.arrow_forward_ios_rounded,
+            size: 14,
+            color: Colors.grey.shade300,
+          ),
+    );
+  }
+
+  Widget _bottomSheetTile({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      onTap: onTap,
+      leading: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: _teal.withOpacity(0.1),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: _teal, size: 20),
+      ),
+      title: Text(
+        label,
+        style: const TextStyle(fontWeight: FontWeight.w500, color: _navy),
       ),
     );
   }
