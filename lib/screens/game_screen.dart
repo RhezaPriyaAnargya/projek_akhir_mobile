@@ -2,6 +2,10 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 
+const Color _navy = Color(0xFF1A3557);
+const Color _teal = Color(0xFF2ABFBF);
+const Color _cream = Color(0xFFF5F0E8);
+
 // ─── Data Soal ────────────────────────────────────────────────────────────────
 
 class QuizQuestion {
@@ -94,8 +98,6 @@ class _GameScreenState extends State<GameScreen> {
   int _bestStreak = 0;
   List<bool> _answerHistory = [];
 
-  // ─── Timer ──────────────────────────────────────────────────────────────────
-
   void _startTimer() {
     _timer?.cancel();
     _timeLeft = 15;
@@ -119,8 +121,6 @@ class _GameScreenState extends State<GameScreen> {
     });
     Future.delayed(const Duration(seconds: 2), _nextQuestion);
   }
-
-  // ─── Game Logic ─────────────────────────────────────────────────────────────
 
   void _startGame() {
     setState(() {
@@ -148,8 +148,8 @@ class _GameScreenState extends State<GameScreen> {
       _score += _timeLeft > 10
           ? 150
           : _timeLeft > 5
-              ? 100
-              : 70;
+          ? 100
+          : 70;
     } else {
       _streak = 0;
     }
@@ -183,24 +183,28 @@ class _GameScreenState extends State<GameScreen> {
     super.dispose();
   }
 
-  // ─── Build ──────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F4FF),
+      backgroundColor: _cream,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: _navy,
         elevation: 0,
-        title: const Text(
-          'Trek Quiz 🌍',
-          style: TextStyle(
-            color: Colors.blueAccent,
-            fontWeight: FontWeight.bold,
-            fontSize: 22,
-          ),
+        automaticallyImplyLeading: false,
+        title: const Row(
+          children: [
+            Text('🌍', style: TextStyle(fontSize: 22)),
+            SizedBox(width: 8),
+            Text(
+              'Trek Quiz',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+              ),
+            ),
+          ],
         ),
-        centerTitle: false,
       ),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
@@ -213,69 +217,88 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  // ─── Home Screen ────────────────────────────────────────────────────────────
+  // ─── Home ─────────────────────────────────────────────────────────────────
 
   Widget _buildHome() {
     return SingleChildScrollView(
       key: const ValueKey('home'),
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
+
+          // Hero banner
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(28),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF1565C0), Color(0xFF42A5F5)],
+                colors: [_navy, Color(0xFF254878)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.blueAccent.withOpacity(0.35),
+                  color: _navy.withOpacity(0.35),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
               ],
             ),
-            child: Column(
+            child: Stack(
               children: [
-                const Text('🌍', style: TextStyle(fontSize: 64)),
-                const SizedBox(height: 16),
-                const Text(
-                  'Kuis Ibu Kota Dunia',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
+                Positioned(
+                  top: -20,
+                  right: -20,
+                  child: Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _teal.withOpacity(0.2),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Uji pengetahuanmu tentang ibu kota negara-negara di dunia!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                Column(
+                  children: [
+                    const Text('🌍', style: TextStyle(fontSize: 60)),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'Kuis Ibu Kota Dunia',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Uji pengetahuanmu tentang ibu kota negara-negara di dunia!',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.75),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-
-          const SizedBox(height: 28),
+          const SizedBox(height: 20),
 
           // Info cards
           Row(
             children: [
               _infoCard('🎯', '10', 'Soal'),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               _infoCard('⏱️', '15', 'Detik/Soal'),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               _infoCard('⭐', '150', 'Maks/Soal'),
             ],
           ),
-
-          const SizedBox(height: 28),
+          const SizedBox(height: 20),
 
           // Cara bermain
           Container(
@@ -283,23 +306,40 @@ class _GameScreenState extends State<GameScreen> {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(18),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
+                  color: _navy.withOpacity(0.07),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Cara Bermain',
-                  style: TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold),
+                Row(
+                  children: [
+                    Container(
+                      width: 4,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        color: _teal,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Cara Bermain',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: _navy,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 _ruleItem('1', 'Pilih jawaban yang benar sebelum waktu habis'),
                 _ruleItem('2', 'Jawab cepat untuk poin lebih besar'),
                 _ruleItem('3', 'Bangun streak untuk jadi yang terbaik'),
@@ -307,31 +347,31 @@ class _GameScreenState extends State<GameScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 24),
 
-          const SizedBox(height: 32),
-
+          // Mulai button
           SizedBox(
             width: double.infinity,
-            height: 56,
+            height: 54,
             child: ElevatedButton(
               onPressed: _startGame,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueAccent,
+                backgroundColor: _teal,
+                elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
-                elevation: 4,
               ),
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.play_arrow_rounded, color: Colors.white, size: 28),
+                  Icon(Icons.play_arrow_rounded, color: Colors.white, size: 26),
                   SizedBox(width: 8),
                   Text(
                     'Mulai Kuis!',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 18,
+                      fontSize: 17,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -339,6 +379,7 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 16),
         ],
       ),
     );
@@ -347,26 +388,34 @@ class _GameScreenState extends State<GameScreen> {
   Widget _infoCard(String emoji, String value, String label) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8)
+            BoxShadow(
+              color: _navy.withOpacity(0.07),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
           ],
         ),
         child: Column(
           children: [
-            Text(emoji, style: const TextStyle(fontSize: 22)),
+            Text(emoji, style: const TextStyle(fontSize: 20)),
             const SizedBox(height: 4),
-            Text(value,
-                style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blueAccent)),
-            Text(label,
-                style:
-                    const TextStyle(fontSize: 11, color: Colors.grey)),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: _navy,
+              ),
+            ),
+            Text(
+              label,
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+            ),
           ],
         ),
       ),
@@ -375,36 +424,41 @@ class _GameScreenState extends State<GameScreen> {
 
   Widget _ruleItem(String number, String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: 24,
             height: 24,
-            decoration: const BoxDecoration(
-              color: Color(0xFFE3F2FD),
+            decoration: BoxDecoration(
+              color: _teal.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Center(
-              child: Text(number,
-                  style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blueAccent)),
+              child: Text(
+                number,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: _teal,
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(text,
-                style: const TextStyle(fontSize: 14, color: Colors.black87)),
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+            ),
           ),
         ],
       ),
     );
   }
 
-  // ─── Playing Screen ─────────────────────────────────────────────────────────
+  // ─── Playing ──────────────────────────────────────────────────────────────
 
   Widget _buildPlaying() {
     final q = _questions[_currentIndex];
@@ -412,79 +466,125 @@ class _GameScreenState extends State<GameScreen> {
     final timerColor = _timeLeft > 10
         ? Colors.green
         : _timeLeft > 5
-            ? Colors.orange
-            : Colors.red;
+        ? Colors.orange
+        : Colors.red;
 
     return SingleChildScrollView(
       key: ValueKey('playing_$_currentIndex'),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // Progress bar & info
-          Row(
-            children: [
-              Text(
-                'Soal ${_currentIndex + 1}/10',
-                style: const TextStyle(
-                    fontWeight: FontWeight.bold, color: Colors.blueAccent),
-              ),
-              const Spacer(),
-              Row(
-                children: [
-                  const Text('🔥', style: TextStyle(fontSize: 16)),
-                  const SizedBox(width: 4),
-                  Text('$_streak streak',
+          // Progress & stats
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: _navy.withOpacity(0.07),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'Soal ${_currentIndex + 1}/10',
                       style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.deepOrange)),
-                ],
-              ),
-              const SizedBox(width: 12),
-              Row(
-                children: [
-                  const Text('⭐', style: TextStyle(fontSize: 16)),
-                  const SizedBox(width: 4),
-                  Text('$_score',
-                      style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.amber)),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 8,
-              backgroundColor: Colors.grey.shade200,
-              color: Colors.blueAccent,
+                        fontWeight: FontWeight.bold,
+                        color: _navy,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.deepOrange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        children: [
+                          const Text('🔥', style: TextStyle(fontSize: 13)),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$_streak streak',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.deepOrange,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        children: [
+                          const Text('⭐', style: TextStyle(fontSize: 13)),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$_score',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.amber,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 7,
+                    backgroundColor: Colors.grey.shade100,
+                    color: _teal,
+                  ),
+                ),
+              ],
             ),
           ),
-
-          const SizedBox(height: 20),
+          const SizedBox(height: 14),
 
           // Timer
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 12),
+            padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
-              color: timerColor.withOpacity(0.1),
+              color: timerColor.withOpacity(0.08),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: timerColor.withOpacity(0.3)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.timer_outlined, color: timerColor, size: 20),
-                const SizedBox(width: 8),
+                Icon(Icons.timer_outlined, color: timerColor, size: 18),
+                const SizedBox(width: 6),
                 Text(
                   '$_timeLeft detik',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 15,
                     fontWeight: FontWeight.bold,
                     color: timerColor,
                   ),
@@ -492,8 +592,7 @@ class _GameScreenState extends State<GameScreen> {
               ],
             ),
           ),
-
-          const SizedBox(height: 20),
+          const SizedBox(height: 14),
 
           // Question card
           Container(
@@ -501,14 +600,14 @@ class _GameScreenState extends State<GameScreen> {
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF1565C0), Color(0xFF1E88E5)],
+                colors: [_navy, Color(0xFF254878)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.blueAccent.withOpacity(0.3),
+                  color: _navy.withOpacity(0.3),
                   blurRadius: 15,
                   offset: const Offset(0, 6),
                 ),
@@ -516,28 +615,27 @@ class _GameScreenState extends State<GameScreen> {
             ),
             child: Column(
               children: [
-                Text(q.emoji, style: const TextStyle(fontSize: 52)),
+                Text(q.emoji, style: const TextStyle(fontSize: 50)),
                 const SizedBox(height: 12),
                 Text(
                   q.question,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
+                    fontSize: 17,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
             ),
           ),
+          const SizedBox(height: 16),
 
-          const SizedBox(height: 20),
-
-          // Answer options
+          // Options
           ...q.options.map((option) => _buildOptionButton(option, q)),
 
-          // History dots
-          const SizedBox(height: 20),
+          // Dots
+          const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(_questions.length, (i) {
@@ -545,7 +643,7 @@ class _GameScreenState extends State<GameScreen> {
               if (i < _answerHistory.length) {
                 color = _answerHistory[i] ? Colors.green : Colors.red;
               } else if (i == _currentIndex) {
-                color = Colors.blueAccent;
+                color = _teal;
               } else {
                 color = Colors.grey.shade300;
               }
@@ -560,6 +658,7 @@ class _GameScreenState extends State<GameScreen> {
               );
             }),
           ),
+          const SizedBox(height: 8),
         ],
       ),
     );
@@ -568,7 +667,7 @@ class _GameScreenState extends State<GameScreen> {
   Widget _buildOptionButton(String option, QuizQuestion q) {
     Color bgColor = Colors.white;
     Color borderColor = Colors.grey.shade200;
-    Color textColor = Colors.black87;
+    Color textColor = _navy;
     IconData? icon;
 
     if (_answered) {
@@ -589,15 +688,15 @@ class _GameScreenState extends State<GameScreen> {
       onTap: () => _selectAnswer(option),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: borderColor, width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: _navy.withOpacity(0.05),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -609,23 +708,25 @@ class _GameScreenState extends State<GameScreen> {
               child: Text(
                 option,
                 style: TextStyle(
-                  fontSize: 15,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: textColor,
                 ),
               ),
             ),
             if (icon != null)
-              Icon(icon,
-                  color: option == q.correctAnswer ? Colors.green : Colors.red,
-                  size: 22),
+              Icon(
+                icon,
+                color: option == q.correctAnswer ? Colors.green : Colors.red,
+                size: 20,
+              ),
           ],
         ),
       ),
     );
   }
 
-  // ─── Result Screen ──────────────────────────────────────────────────────────
+  // ─── Result ───────────────────────────────────────────────────────────────
 
   Widget _buildResult() {
     final total = _questions.length;
@@ -651,25 +752,25 @@ class _GameScreenState extends State<GameScreen> {
     } else {
       medal = '📚';
       message = 'Jangan menyerah, coba lagi!';
-      medalColor = Colors.blueAccent;
+      medalColor = _teal;
     }
 
     return SingleChildScrollView(
       key: const ValueKey('result'),
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
 
-          // Medal & score
+          // Medal card
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(28),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  medalColor.withOpacity(0.8),
-                  medalColor.withOpacity(0.4)
+                  medalColor.withOpacity(0.85),
+                  medalColor.withOpacity(0.5),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -685,67 +786,84 @@ class _GameScreenState extends State<GameScreen> {
             ),
             child: Column(
               children: [
-                Text(medal, style: const TextStyle(fontSize: 64)),
+                Text(medal, style: const TextStyle(fontSize: 60)),
                 const SizedBox(height: 12),
                 Text(
                   message,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
+                    fontSize: 17,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
             ),
           ),
-
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
           // Stats
           Row(
             children: [
               _statCard('✅', '$correct/$total', 'Benar', Colors.green),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               _statCard('⭐', '$_score', 'Skor', Colors.amber),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               _statCard('🔥', '$_bestStreak', 'Best Streak', Colors.deepOrange),
             ],
           ),
+          const SizedBox(height: 16),
 
-          const SizedBox(height: 24),
-
-          // Answer review
+          // Rekap jawaban
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(18),
               boxShadow: [
                 BoxShadow(
-                    color: Colors.black.withOpacity(0.05), blurRadius: 10)
+                  color: _navy.withOpacity(0.07),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
               ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Rekap Jawaban',
-                  style: TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold),
+                Row(
+                  children: [
+                    Container(
+                      width: 4,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        color: _teal,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Rekap Jawaban',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: _navy,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 ...List.generate(_questions.length, (i) {
                   final isCorrect =
                       i < _answerHistory.length && _answerHistory[i];
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.only(bottom: 10),
                     child: Row(
                       children: [
                         Text(
                           _questions[i].emoji,
-                          style: const TextStyle(fontSize: 20),
+                          style: const TextStyle(fontSize: 18),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
@@ -753,15 +871,14 @@ class _GameScreenState extends State<GameScreen> {
                             _questions[i].question
                                 .replaceAll('Apa ibu kota dari ', '')
                                 .replaceAll('?', ''),
-                            style: const TextStyle(
-                                fontSize: 13, color: Colors.black87),
+                            style: const TextStyle(fontSize: 13, color: _navy),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Text(
                           _questions[i].correctAnswer,
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: isCorrect
                                 ? Colors.green.shade700
@@ -770,11 +887,9 @@ class _GameScreenState extends State<GameScreen> {
                         ),
                         const SizedBox(width: 6),
                         Icon(
-                          isCorrect
-                              ? Icons.check_circle
-                              : Icons.cancel,
+                          isCorrect ? Icons.check_circle : Icons.cancel,
                           color: isCorrect ? Colors.green : Colors.red,
-                          size: 18,
+                          size: 16,
                         ),
                       ],
                     ),
@@ -783,25 +898,25 @@ class _GameScreenState extends State<GameScreen> {
               ],
             ),
           ),
-
-          const SizedBox(height: 28),
+          const SizedBox(height: 20),
 
           // Buttons
           Row(
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () =>
-                      setState(() => _phase = _GamePhase.home),
-                  icon: const Icon(Icons.home_outlined,
-                      color: Colors.blueAccent),
-                  label: const Text('Menu',
-                      style: TextStyle(color: Colors.blueAccent)),
+                  onPressed: () => setState(() => _phase = _GamePhase.home),
+                  icon: const Icon(Icons.home_rounded, color: _navy, size: 18),
+                  label: const Text(
+                    'Menu',
+                    style: TextStyle(color: _navy, fontWeight: FontWeight.w600),
+                  ),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: const BorderSide(color: Colors.blueAccent),
+                    side: const BorderSide(color: _navy),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                 ),
               ),
@@ -809,49 +924,67 @@ class _GameScreenState extends State<GameScreen> {
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: _startGame,
-                  icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-                  label: const Text('Main Lagi',
-                      style: TextStyle(color: Colors.white)),
+                  icon: const Icon(
+                    Icons.refresh_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                  label: const Text(
+                    'Main Lagi',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
+                    backgroundColor: _teal,
+                    elevation: 0,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 16),
         ],
       ),
     );
   }
 
-  Widget _statCard(
-      String emoji, String value, String label, Color color) {
+  Widget _statCard(String emoji, String value, String label, Color color) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withOpacity(0.05), blurRadius: 8)
+              color: _navy.withOpacity(0.07),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
           ],
         ),
         child: Column(
           children: [
-            Text(emoji, style: const TextStyle(fontSize: 22)),
+            Text(emoji, style: const TextStyle(fontSize: 20)),
             const SizedBox(height: 4),
-            Text(value,
-                style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: color)),
-            Text(label,
-                style:
-                    const TextStyle(fontSize: 11, color: Colors.grey)),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            Text(
+              label,
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+            ),
           ],
         ),
       ),

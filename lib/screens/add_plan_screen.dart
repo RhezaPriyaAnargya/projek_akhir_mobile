@@ -7,6 +7,10 @@ import 'map_picker_screen.dart';
 import '../helpers/notification_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+const Color _navy = Color(0xFF1A3557);
+const Color _teal = Color(0xFF2ABFBF);
+const Color _cream = Color(0xFFF5F0E8);
+
 class AddPlanScreen extends StatefulWidget {
   final Map<String, dynamic>? plan;
 
@@ -25,7 +29,6 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
   bool _isLoadingAI = false;
   LatLng? _selectedLocation;
 
-  // Error tracking
   String? _titleError;
   String? _dateError;
   String? _locationError;
@@ -46,7 +49,6 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
     'Des',
   ];
 
-  // Konstanta validasi
   static const int MAX_TITLE_LENGTH = 100;
   static const int MAX_LOCATION_LENGTH = 100;
   static const int MAX_DETAILS_LENGTH = 2000;
@@ -60,11 +62,18 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
       _locationController.text = widget.plan!['location'];
       _detailsController.text = widget.plan!['details'] ?? '';
     }
-
-    // Add listeners untuk real-time validation
     _titleController.addListener(_validateTitle);
     _locationController.addListener(_validateLocation);
     _detailsController.addListener(_validateDetails);
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _dateController.dispose();
+    _locationController.dispose();
+    _detailsController.dispose();
+    super.dispose();
   }
 
   void _validateTitle() {
@@ -109,7 +118,6 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
     _validateTitle();
     _validateLocation();
     _validateDetails();
-
     return _titleError == null &&
         _locationError == null &&
         _detailsError == null &&
@@ -118,7 +126,6 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
 
   Future<void> _selectDateRange(BuildContext context) async {
     FocusScope.of(context).unfocus();
-
     final DateTimeRange? picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime.now(),
@@ -131,7 +138,7 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Colors.blueAccent,
+              primary: _navy,
               onPrimary: Colors.white,
               onSurface: Colors.black87,
             ),
@@ -146,13 +153,8 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
           "${picked.start.day} ${_months[picked.start.month - 1]} ${picked.start.year}";
       String end =
           "${picked.end.day} ${_months[picked.end.month - 1]} ${picked.end.year}";
-
       setState(() {
-        if (start == end) {
-          _dateController.text = start;
-        } else {
-          _dateController.text = "$start - $end";
-        }
+        _dateController.text = start == end ? start : "$start - $end";
         _dateError = null;
       });
     }
@@ -163,17 +165,21 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
         _dateController.text.trim().isEmpty ||
         _locationController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Isi Judul, Tanggal, dan Lokasi terlebih dahulu!'),
-          backgroundColor: Colors.orangeAccent,
+        SnackBar(
+          content: const Text(
+            'Isi Judul, Tanggal, dan Lokasi terlebih dahulu!',
+          ),
+          backgroundColor: Colors.orange.shade700,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       );
       return;
     }
 
-    setState(() {
-      _isLoadingAI = true;
-    });
+    setState(() => _isLoadingAI = true);
 
     try {
       final details = await AIHelper.generateTravelDetails(
@@ -181,28 +187,41 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
         _dateController.text,
         _locationController.text,
       );
-
       setState(() {
         _isLoadingAI = false;
         _detailsController.text = details;
         _validateDetails();
       });
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Detail berhasil di-generate!'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white, size: 18),
+                SizedBox(width: 8),
+                Text('Detail berhasil di-generate!'),
+              ],
+            ),
+            backgroundColor: Colors.green.shade600,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
       }
     } catch (e) {
-      setState(() {
-        _isLoadingAI = false;
-      });
+      setState(() => _isLoadingAI = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
         );
       }
     }
@@ -211,9 +230,13 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
   void _savePlan() async {
     if (!_isFormValid()) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Mohon lengkapi semua field dengan benar!'),
+        SnackBar(
+          content: const Text('Mohon lengkapi semua field dengan benar!'),
           backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       );
       return;
@@ -222,17 +245,14 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
     try {
       final session = await _dbHelper.getCurrentSession();
       if (session != null) {
-        // Definisikan variabel di sini agar bisa dipakai di mana saja
         final title = _titleController.text.trim();
         final date = _dateController.text;
         final location = _locationController.text.trim();
 
-        // Cek preferensi notifikasi
         final prefs = await SharedPreferences.getInstance();
         final notifEnabled = prefs.getBool('notification_enabled') ?? true;
 
         if (widget.plan == null) {
-          // ── INSERT ────────────────────────────────────────────
           await _dbHelper.insertPlan({
             'user_id': session['user_id'],
             'title': title,
@@ -240,9 +260,7 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
             'location': location,
             'details': _detailsController.text.trim(),
           });
-
           if (notifEnabled) {
-            // 🔔 Notifikasi 1: plan berhasil dibuat
             NotificationHelper.showPlanCreatedNotification(
               planTitle: title,
               planLocation: location,
@@ -256,11 +274,9 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
             });
           }
         } else {
-          // ── UPDATE ────────────────────────────────────────────
           await NotificationHelper.cancelPlanNotifications(
             widget.plan!['title'] as String,
           );
-
           await _dbHelper.updatePlan({
             'id': widget.plan!['id'],
             'user_id': session['user_id'],
@@ -269,7 +285,6 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
             'location': location,
             'details': _detailsController.text.trim(),
           });
-
           if (notifEnabled) {
             await NotificationHelper.scheduleH1Reminder(
               planTitle: title,
@@ -283,241 +298,531 @@ class _AddPlanScreenState extends State<AddPlanScreen> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Error: Session tidak ditemukan'),
-              backgroundColor: Colors.red,
-            ),
+            const SnackBar(content: Text('Error: Session tidak ditemukan')),
           );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    bool isEditMode = widget.plan != null;
+    final isEditMode = widget.plan != null;
+    final formValid = _isFormValid();
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: Text(
-          isEditMode ? 'Edit Rencana' : 'Buat Rencana Baru',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.blueAccent,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // JUDUL
-              TextField(
-                controller: _titleController,
-                maxLength: MAX_TITLE_LENGTH,
-                decoration: InputDecoration(
-                  labelText: 'Judul Trip',
-                  hintText: 'Cth: Liburan Musim Panas',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  prefixIcon: const Icon(Icons.flight),
-                  errorText: _titleError,
-                  errorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.red),
-                  ),
-                  focusedErrorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.red, width: 2),
-                  ),
-                  counterText:
-                      '${_titleController.text.length}/$MAX_TITLE_LENGTH',
-                ),
-                onChanged: (_) => _validateTitle(),
+      backgroundColor: _cream,
+      body: Column(
+        children: [
+          // ── Header ───────────────────────────────────────────────
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [_navy, Color(0xFF254878)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              const SizedBox(height: 20),
-
-              // TANGGAL
-              TextField(
-                controller: _dateController,
-                readOnly: true,
-                onTap: () => _selectDateRange(context),
-                decoration: InputDecoration(
-                  labelText: 'Tanggal Perjalanan',
-                  hintText: 'Pilih rentang tanggal...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  prefixIcon: const Icon(
-                    Icons.calendar_today,
-                    color: Colors.blueAccent,
-                  ),
-                  suffixIcon: const Icon(Icons.arrow_drop_down),
-                  errorText: _dateError,
-                  errorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.red),
-                  ),
-                ),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(32),
+                bottomRight: Radius.circular(32),
               ),
-              const SizedBox(height: 24),
-
-              // LOKASI
-              TextField(
-                controller: _locationController,
-                maxLength: MAX_LOCATION_LENGTH,
-                decoration: InputDecoration(
-                  labelText: 'Lokasi Perjalanan',
-                  hintText: 'Cth: Bali, Yogyakarta, Jakarta...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+            ),
+            child: SafeArea(
+              bottom: false,
+              child: Stack(
+                children: [
+                  Positioned(
+                    top: -20,
+                    right: -20,
+                    child: Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _teal.withOpacity(0.15),
+                      ),
+                    ),
                   ),
-                  prefixIcon: const Icon(
-                    Icons.location_on_outlined,
-                    color: Colors.redAccent,
-                  ),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.map, color: Colors.blueAccent),
-                    onPressed: () async {
-                      final selectedLocation = await Navigator.push<LatLng>(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => MapPickerScreen(
-                            initialLocation: _selectedLocation,
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 8, 16, 24),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.arrow_back_ios_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                isEditMode
+                                    ? 'Edit Rencana'
+                                    : 'Buat Rencana Baru',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                isEditMode
+                                    ? 'Perbarui detail perjalananmu'
+                                    : 'Rencanakan petualangan berikutnya',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.7),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      );
-
-                      if (selectedLocation != null) {
-                        setState(() {
-                          _selectedLocation = selectedLocation;
-                          _locationController.text =
-                              LocationHelper.formatLocation(selectedLocation);
-                          _validateLocation();
-                        });
-                      }
-                    },
-                  ),
-                  errorText: _locationError,
-                  errorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.red),
-                  ),
-                  focusedErrorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.red, width: 2),
-                  ),
-                  counterText:
-                      '${_locationController.text.length}/$MAX_LOCATION_LENGTH',
-                ),
-                onChanged: (_) => _validateLocation(),
-              ),
-              const SizedBox(height: 24),
-
-              // TOMBOL AI
-              ElevatedButton.icon(
-                onPressed: _isLoadingAI ? null : _generateAIDetails,
-                icon: _isLoadingAI
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.auto_awesome),
-                label: Text(
-                  _isLoadingAI
-                      ? 'Menghasilkan Detail...'
-                      : 'Isi Detail dengan Trekker AI',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue.shade50,
-                  foregroundColor: _isLoadingAI
-                      ? Colors.grey
-                      : Colors.blueAccent,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // DETAIL PERJALANAN
-              TextField(
-                controller: _detailsController,
-                maxLength: MAX_DETAILS_LENGTH,
-                maxLines: 5,
-                decoration: InputDecoration(
-                  labelText: 'Detail Perjalanan',
-                  alignLabelWithHint: true,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  errorText: _detailsError,
-                  errorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.red),
-                  ),
-                  focusedErrorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.red, width: 2),
-                  ),
-                  counterText:
-                      '${_detailsController.text.length}/$MAX_DETAILS_LENGTH',
-                ),
-                onChanged: (_) => _validateDetails(),
-              ),
-
-              const SizedBox(height: 40),
-
-              // TOMBOL SIMPAN
-              SizedBox(
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _isFormValid() ? _savePlan : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _isFormValid()
-                        ? (isEditMode ? Colors.green : Colors.blueAccent)
-                        : Colors.grey,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      ],
                     ),
                   ),
-                  child: Text(
-                    isEditMode ? 'Update Rencana' : 'Simpan Rencana',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
+
+          // ── Form ─────────────────────────────────────────────────
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 4),
+
+                  // Form card
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _navy.withOpacity(0.08),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // ── Judul ─────────────────────────────────
+                        _buildLabel(Icons.flight_takeoff_rounded, 'Judul Trip'),
+                        const SizedBox(height: 8),
+                        _buildTextField(
+                          controller: _titleController,
+                          hint: 'Cth: Liburan Musim Panas',
+                          icon: Icons.flight_takeoff_rounded,
+                          maxLength: MAX_TITLE_LENGTH,
+                          errorText: _titleError,
+                          counterText:
+                              '${_titleController.text.length}/$MAX_TITLE_LENGTH',
+                          onChanged: (_) => _validateTitle(),
+                        ),
+                        const SizedBox(height: 18),
+
+                        // ── Tanggal ───────────────────────────────
+                        _buildLabel(
+                          Icons.calendar_today_rounded,
+                          'Tanggal Perjalanan',
+                        ),
+                        const SizedBox(height: 8),
+                        GestureDetector(
+                          onTap: () => _selectDateRange(context),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 16,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8F9FF),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: _dateController.text.isNotEmpty
+                                    ? _teal
+                                    : Colors.grey.shade200,
+                                width: _dateController.text.isNotEmpty
+                                    ? 1.5
+                                    : 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.calendar_today_rounded,
+                                  color: _navy.withOpacity(0.6),
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    _dateController.text.isNotEmpty
+                                        ? _dateController.text
+                                        : 'Pilih rentang tanggal...',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: _dateController.text.isNotEmpty
+                                          ? _navy
+                                          : Colors.grey.shade400,
+                                    ),
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.arrow_drop_down_rounded,
+                                  color: Colors.grey.shade400,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+
+                        // ── Lokasi ────────────────────────────────
+                        _buildLabel(
+                          Icons.location_on_rounded,
+                          'Lokasi Perjalanan',
+                        ),
+                        const SizedBox(height: 8),
+                        _buildTextField(
+                          controller: _locationController,
+                          hint: 'Cth: Bali, Yogyakarta, Jakarta...',
+                          icon: Icons.location_on_rounded,
+                          iconColor: _teal,
+                          maxLength: MAX_LOCATION_LENGTH,
+                          errorText: _locationError,
+                          counterText:
+                              '${_locationController.text.length}/$MAX_LOCATION_LENGTH',
+                          onChanged: (_) => _validateLocation(),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              Icons.map_rounded,
+                              color: _navy.withOpacity(0.6),
+                              size: 20,
+                            ),
+                            onPressed: () async {
+                              final selectedLocation =
+                                  await Navigator.push<LatLng>(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => MapPickerScreen(
+                                        initialLocation: _selectedLocation,
+                                      ),
+                                    ),
+                                  );
+                              if (selectedLocation != null) {
+                                setState(() {
+                                  _selectedLocation = selectedLocation;
+                                  _locationController.text =
+                                      LocationHelper.formatLocation(
+                                        selectedLocation,
+                                      );
+                                  _validateLocation();
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // ── AI Button ─────────────────────────────────────
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _navy.withOpacity(0.07),
+                          blurRadius: 12,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _isLoadingAI ? null : _generateAIDetails,
+                        borderRadius: BorderRadius.circular(16),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: _teal.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: _isLoadingAI
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: _teal,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.auto_awesome,
+                                        color: _teal,
+                                        size: 20,
+                                      ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Trekker AI Assistant',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        color: _navy,
+                                      ),
+                                    ),
+                                    Text(
+                                      _isLoadingAI
+                                          ? 'Sedang membuat detail...'
+                                          : 'Isi detail perjalanan otomatis dengan AI',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Icon(
+                                Icons.arrow_forward_ios_rounded,
+                                size: 14,
+                                color: Colors.grey.shade300,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // ── Detail Perjalanan ─────────────────────────────
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _navy.withOpacity(0.08),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildLabel(
+                          Icons.description_rounded,
+                          'Detail Perjalanan',
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _detailsController,
+                          maxLength: MAX_DETAILS_LENGTH,
+                          maxLines: 6,
+                          style: const TextStyle(fontSize: 14, color: _navy),
+                          decoration: InputDecoration(
+                            hintText:
+                                'Ceritakan rencana perjalananmu secara detail...',
+                            hintStyle: TextStyle(
+                              color: Colors.grey.shade400,
+                              fontSize: 13,
+                            ),
+                            alignLabelWithHint: true,
+                            filled: true,
+                            fillColor: const Color(0xFFF8F9FF),
+                            errorText: _detailsError,
+                            counterText:
+                                '${_detailsController.text.length}/$MAX_DETAILS_LENGTH',
+                            contentPadding: const EdgeInsets.all(16),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade200,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade200,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: _teal,
+                                width: 1.5,
+                              ),
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: Colors.redAccent,
+                              ),
+                            ),
+                            focusedErrorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: Colors.redAccent,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                          onChanged: (_) => _validateDetails(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // ── Simpan Button ─────────────────────────────────
+                  SizedBox(
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: formValid ? _savePlan : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isEditMode
+                            ? const Color(0xFF16A34A)
+                            : _navy,
+                        disabledBackgroundColor: Colors.grey.shade300,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            isEditMode
+                                ? Icons.update_rounded
+                                : Icons.save_rounded,
+                            color: formValid ? Colors.white : Colors.grey,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            isEditMode ? 'Update Rencana' : 'Simpan Rencana',
+                            style: TextStyle(
+                              color: formValid ? Colors.white : Colors.grey,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _dateController.dispose();
-    _locationController.dispose();
-    _detailsController.dispose();
-    super.dispose();
+  Widget _buildLabel(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, color: _teal, size: 16),
+        const SizedBox(width: 8),
+        Text(
+          text,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: _navy,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    Color? iconColor,
+    int? maxLength,
+    String? errorText,
+    String? counterText,
+    ValueChanged<String>? onChanged,
+    Widget? suffixIcon,
+  }) {
+    return TextField(
+      controller: controller,
+      maxLength: maxLength,
+      onChanged: onChanged,
+      style: const TextStyle(fontSize: 14, color: _navy),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+        prefixIcon: Icon(
+          icon,
+          color: iconColor ?? _navy.withOpacity(0.6),
+          size: 20,
+        ),
+        suffixIcon: suffixIcon,
+        errorText: errorText,
+        counterText: counterText,
+        filled: true,
+        fillColor: const Color(0xFFF8F9FF),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _teal, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Colors.redAccent),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+        ),
+      ),
+    );
   }
 }
