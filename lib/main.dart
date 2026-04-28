@@ -4,10 +4,12 @@ import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'helpers/notification_helper.dart';
+import 'helpers/secure_storage_helper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await NotificationHelper.init();
+  await SecureStorageHelper.initKeys();
 
   // Load .env file dengan error handling
   try {
