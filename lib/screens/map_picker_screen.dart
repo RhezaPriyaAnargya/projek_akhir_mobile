@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../helpers/location_helper.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class MapPickerScreen extends StatefulWidget {
   final LatLng? initialLocation;
@@ -26,14 +27,8 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
 
   List<Map<String, dynamic>> _nearbyPlaces = [];
   bool _isLoadingPlaces = false;
-  double _radiusKm = 2.0;
+  double _radiusKm = 10.0;
   Map<String, dynamic>? _selectedPlace;
-
-  final List<String> _overpassServers = [
-    'https://overpass-api.de/api/interpreter',
-    'https://overpass.kumi.systems/api/interpreter',
-    'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
-  ];
 
   @override
   void initState() {
@@ -50,6 +45,23 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
   void dispose() {
     _mapController.dispose();
     super.dispose();
+  }
+
+  Future<void> _openGoogleMaps(Map<String, dynamic> place) async {
+    final lat = place['lat'];
+    final lon = place['lon'];
+    final name = Uri.encodeComponent(place['name']);
+
+    final Uri gmapsApp = Uri.parse('google.navigation:q=$lat,$lon');
+    final Uri gmapsWeb = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=$lat,$lon&query_place_name=$name',
+    );
+
+    if (await canLaunchUrl(gmapsApp)) {
+      await launchUrl(gmapsApp);
+    } else {
+      await launchUrl(gmapsWeb, mode: LaunchMode.externalApplication);
+    }
   }
 
   Future<void> _useCurrentLocation() async {
@@ -78,10 +90,10 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
       _selectedPlace = null;
     });
 
-    // Hitung bounding box dari radius
-    final double latOffset = radiusMeters / 111000;
+    // Viewbox sedikit lebih besar untuk memastikan area tertangkap
+    final double latOffset = (radiusMeters * 1.2) / 111000;
     final double lonOffset =
-        radiusMeters /
+        (radiusMeters * 1.2) /
         (111000 * (3.14159 / 180 * center.latitude).abs().clamp(0.01, 1.0));
 
     final minLat = center.latitude - latOffset;
@@ -89,7 +101,6 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     final minLon = center.longitude - lonOffset;
     final maxLon = center.longitude + lonOffset;
 
-    // ✅ Kategori wisata yang dicari satu per satu lalu digabung
     final List<Map<String, String>> searchTargets = [
       {'q': 'museum', 'label': 'Museum', 'type': 'museum'},
       {'q': 'candi', 'label': 'Candi / Kuil', 'type': 'temple'},
@@ -104,7 +115,8 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     ];
 
     final List<Map<String, dynamic>> allPlaces = [];
-    final Set<String> addedNames = {}; // hindari duplikat
+    final Set<String> addedNames = {};
+    final distanceCalc = Distance();
 
     try {
       for (final target in searchTargets) {
@@ -114,7 +126,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
           '&q=${Uri.encodeComponent(target['q']!)}'
           '&viewbox=$minLon,$maxLat,$maxLon,$minLat'
           '&bounded=1'
-          '&limit=5'
+          '&limit=10'
           '&addressdetails=1'
           '&extratags=1',
         );
@@ -130,7 +142,6 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
             final name = e['display_name']?.toString().split(',').first ?? '';
             if (name.isEmpty || addedNames.contains(name)) continue;
 
-            // ✅ Filter: buang hasil yang jelas bukan wisata
             final osmType = e['type'] ?? '';
             final osmClass = e['class'] ?? '';
             const blacklistTypes = [
@@ -150,13 +161,18 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
             if (blacklistTypes.contains(osmType)) continue;
             if (osmClass == 'highway' || osmClass == 'boundary') continue;
 
+            final lat = double.parse(e['lat']);
+            final lon = double.parse(e['lon']);
+            final dist = distanceCalc(center, LatLng(lat, lon));
+            if (dist > radiusMeters) continue; // Filter ketat radius
+
             addedNames.add(name);
             allPlaces.add({
               'name': name,
               'type': target['type']!,
               'category_label': target['label']!,
-              'lat': double.parse(e['lat']),
-              'lon': double.parse(e['lon']),
+              'lat': lat,
+              'lon': lon,
               'address': e['address'] != null
                   ? '${e['address']['road'] ?? ''} ${e['address']['city'] ?? e['address']['town'] ?? ''}'
                         .trim()
@@ -165,21 +181,17 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
               'phone': e['extratags']?['phone'] ?? '',
               'website': e['extratags']?['website'] ?? '',
               'description': e['extratags']?['description'] ?? '',
+              'distance': dist,
             });
           }
         }
 
-        // ✅ Delay antar request agar tidak kena rate limit Nominatim
         await Future.delayed(const Duration(milliseconds: 300));
       }
 
-      // Urutkan berdasarkan jarak
-      final distanceCalc = Distance();
-      allPlaces.sort((a, b) {
-        final da = distanceCalc(center, LatLng(a['lat'], a['lon']));
-        final db = distanceCalc(center, LatLng(b['lat'], b['lon']));
-        return da.compareTo(db);
-      });
+      allPlaces.sort(
+        (a, b) => (a['distance'] as double).compareTo(b['distance'] as double),
+      );
 
       if (mounted) {
         setState(() {
@@ -190,9 +202,14 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
         if (_nearbyPlaces.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Tidak ada tempat wisata ditemukan di area ini.'),
+              content: Text(
+                'Tidak ada tempat wisata ditemukan dalam radius ini.',
+              ),
             ),
           );
+        } else {
+          await Future.delayed(const Duration(milliseconds: 1500));
+          if (mounted) _showNearbyPlacesSheet();
         }
       }
     } catch (e) {
@@ -206,11 +223,16 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
   }
 
   String _getDistanceLabel(Map<String, dynamic> place) {
-    final distanceCalc = Distance();
-    final meters = distanceCalc(
-      _markerPosition,
-      LatLng(place['lat'], place['lon']),
-    );
+    final meters = place['distance'] as double?;
+    if (meters == null) {
+      final distanceCalc = Distance();
+      final m = distanceCalc(
+        _markerPosition,
+        LatLng(place['lat'], place['lon']),
+      );
+      if (m < 1000) return '${m.toStringAsFixed(0)} m';
+      return '${(m / 1000).toStringAsFixed(1)} km';
+    }
     if (meters < 1000) return '${meters.toStringAsFixed(0)} m';
     return '${(meters / 1000).toStringAsFixed(1)} km';
   }
@@ -218,6 +240,19 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
   void _onPlaceTapped(Map<String, dynamic> place) {
     setState(() => _selectedPlace = place);
     _mapController.move(LatLng(place['lat'], place['lon']), _zoom);
+  }
+
+  void _onMapTap(LatLng location) {
+    if (_selectedPlace != null) {
+      setState(() => _selectedPlace = null);
+      return;
+    }
+    if (widget.viewOnly) return;
+    setState(() => _markerPosition = location);
+    _fetchNearbyTouristPlaces(
+      location,
+      radiusMeters: (_radiusKm * 1000).toInt(),
+    );
   }
 
   void _showNearbyPlacesSheet() {
@@ -257,7 +292,6 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                       ),
                     ),
                   ),
-                  // ✅ Tampilkan radius aktif
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
@@ -352,14 +386,17 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                               ),
                             ],
                           ),
-                          trailing: const Icon(
-                            Icons.arrow_forward_ios,
-                            size: 14,
-                            color: Colors.grey,
+                          trailing: IconButton(
+                            icon: const Icon(
+                              Icons.directions,
+                              color: Colors.blue,
+                              size: 22,
+                            ),
+                            tooltip: 'Buka di Google Maps',
+                            onPressed: () => _openGoogleMaps(place),
                           ),
                           onTap: () {
                             Navigator.pop(context);
-                            // ✅ Pindah ke lokasi tempat wisata & tampilkan info panel
                             final loc = LatLng(place['lat'], place['lon']);
                             _mapController.move(loc, _zoom);
                             setState(() => _selectedPlace = place);
@@ -371,20 +408,6 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  void _onMapTap(LatLng location) {
-    // Tutup info panel dulu jika ada
-    if (_selectedPlace != null) {
-      setState(() => _selectedPlace = null);
-      return;
-    }
-    if (widget.viewOnly) return;
-    setState(() => _markerPosition = location);
-    _fetchNearbyTouristPlaces(
-      location,
-      radiusMeters: (_radiusKm * 1000).toInt(),
     );
   }
 
@@ -529,7 +552,6 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
               initialCenter: _markerPosition,
               initialZoom: _zoom,
               onTap: (tapPosition, point) => _onMapTap(point),
-              // ✅ viewOnly tetap bisa zoom & geser, marker tidak bisa dipindah
               interactionOptions: const InteractionOptions(
                 flags:
                     InteractiveFlag.pinchZoom |
@@ -545,8 +567,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
               ),
               MarkerLayer(
                 markers: [
-                  // Marker utama
-                  // ✅ Ganti marker utama di MarkerLayer menjadi GestureDetector
+                  // Marker utama bisa diklik
                   Marker(
                     point: _markerPosition,
                     width: 80,
@@ -554,13 +575,11 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                     child: GestureDetector(
                       onTap: () {
                         if (_nearbyPlaces.isEmpty) {
-                          // Jika belum ada data, fetch dulu
                           _fetchNearbyTouristPlaces(
                             _markerPosition,
                             radiusMeters: (_radiusKm * 1000).toInt(),
                           );
                         } else {
-                          // Jika sudah ada data, langsung tampilkan sheet
                           _showNearbyPlacesSheet();
                         }
                       },
@@ -571,7 +590,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                       ),
                     ),
                   ),
-                  // ✅ Marker tempat wisata dengan GestureDetector
+                  // Marker tempat wisata
                   ..._nearbyPlaces.map(
                     (place) => Marker(
                       point: LatLng(place['lat'], place['lon']),
@@ -579,37 +598,29 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                       height: 60,
                       child: GestureDetector(
                         onTap: () => _onPlaceTapped(place),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: _selectedPlace == place
-                                    ? Colors.teal
-                                    : Colors.white,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.teal,
-                                  width: 2,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.2),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: _selectedPlace == place
+                                ? Colors.teal
+                                : Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.teal, width: 2),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
                               ),
-                              child: Icon(
-                                _iconForType(place['type']),
-                                color: _selectedPlace == place
-                                    ? Colors.white
-                                    : Colors.teal,
-                                size: 18,
-                              ),
-                            ),
-                          ],
+                            ],
+                          ),
+                          child: Icon(
+                            _iconForType(place['type']),
+                            color: _selectedPlace == place
+                                ? Colors.white
+                                : Colors.teal,
+                            size: 18,
+                          ),
                         ),
                       ),
                     ),
@@ -619,12 +630,12 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
             ],
           ),
 
-          // ✅ Slider radius (hanya jika bukan viewOnly)
+          // Slider radius
           if (!widget.viewOnly)
             Positioned(
-              top: 16,
+              top: MediaQuery.of(context).padding.top + kToolbarHeight + 8,
               left: 16,
-              right: 80,
+              right: 56, // beri ruang untuk tombol recenter di kanan
               child: Card(
                 elevation: 4,
                 shape: RoundedRectangleBorder(
@@ -633,7 +644,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
-                    vertical: 4,
+                    vertical: 8,
                   ),
                   child: Row(
                     children: [
@@ -644,19 +655,28 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       Expanded(
-                        child: Slider(
-                          value: _radiusKm,
-                          min: 1,
-                          max: 20,
-                          divisions: 19,
-                          activeColor: Colors.teal,
-                          onChanged: (val) => setState(() => _radiusKm = val),
-                          onChangeEnd: (val) {
-                            _fetchNearbyTouristPlaces(
-                              _markerPosition,
-                              radiusMeters: (val * 1000).toInt(),
-                            );
-                          },
+                        child: SliderTheme(
+                          data: SliderThemeData(
+                            trackHeight: 4,
+                            thumbShape: const RoundSliderThumbShape(
+                              enabledThumbRadius: 8,
+                            ),
+                            activeTrackColor: Colors.teal,
+                            inactiveTrackColor: Colors.teal.shade100,
+                          ),
+                          child: Slider(
+                            value: _radiusKm,
+                            min: 1,
+                            max: 20,
+                            divisions: 19,
+                            onChanged: (val) => setState(() => _radiusKm = val),
+                            onChangeEnd: (val) {
+                              _fetchNearbyTouristPlaces(
+                                _markerPosition,
+                                radiusMeters: (val * 1000).toInt(),
+                              );
+                            },
+                          ),
                         ),
                       ),
                     ],
@@ -665,7 +685,29 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
               ),
             ),
 
-          // ✅ Info panel seperti Google Maps saat marker diklik
+          // ✅ Tombol pemusatan titik (recenter)
+          Positioned(
+            top: MediaQuery.of(context).padding.top + kToolbarHeight + 8,
+            right: 12,
+            child: Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () {
+                  _mapController.move(_markerPosition, _zoom);
+                },
+                child: const Padding(
+                  padding: EdgeInsets.all(10),
+                  child: Icon(Icons.gps_fixed, color: Colors.teal, size: 22),
+                ),
+              ),
+            ),
+          ),
+
+          // Info panel tempat terpilih
           if (_selectedPlace != null)
             Positioned(
               bottom: widget.viewOnly ? 16 : 90,
@@ -711,7 +753,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 Text(
-                                  _selectedPlace!['category_label'],
+                                  _selectedPlace!['category_label'] ?? '',
                                   style: TextStyle(
                                     color: Colors.teal.shade700,
                                     fontSize: 12,
@@ -730,7 +772,6 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                         ],
                       ),
                       const Divider(height: 20),
-                      // Jarak
                       Row(
                         children: [
                           const Icon(
@@ -745,7 +786,6 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                           ),
                         ],
                       ),
-                      // Alamat
                       if (_selectedPlace!['address'].isNotEmpty) ...[
                         const SizedBox(height: 6),
                         Row(
@@ -767,7 +807,6 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                           ],
                         ),
                       ],
-                      // Jam buka
                       if (_selectedPlace!['opening_hours'].isNotEmpty) ...[
                         const SizedBox(height: 6),
                         Row(
@@ -789,7 +828,6 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                           ],
                         ),
                       ],
-                      // Telepon
                       if (_selectedPlace!['phone'].isNotEmpty) ...[
                         const SizedBox(height: 6),
                         Row(
@@ -807,7 +845,6 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                           ],
                         ),
                       ],
-                      // Deskripsi
                       if (_selectedPlace!['description'].isNotEmpty) ...[
                         const SizedBox(height: 6),
                         Text(
@@ -820,13 +857,30 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ],
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () => _openGoogleMaps(_selectedPlace!),
+                          icon: const Icon(Icons.directions, size: 18),
+                          label: const Text('Buka di Google Maps'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ),
             ),
 
-          // FAB current location (hanya jika bukan viewOnly)
+          // FAB (hanya mode pemilih)
           if (!widget.viewOnly)
             Positioned(
               bottom: 16,
