@@ -6,6 +6,7 @@ import 'profile_screen.dart';
 import 'detail_plan_screen.dart';
 import 'weather_detail_screen.dart';
 import 'add_plan_screen.dart';
+import 'map_picker_screen.dart'; // ✅ tambah import
 import '../helpers/database_helper.dart';
 import '../helpers/weather_helper.dart';
 import '../helpers/location_helper.dart';
@@ -240,6 +241,19 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
+  // ✅ Navigasi ke MapPickerScreen
+  void _openMapPicker() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MapPickerScreen(
+          initialLocation: _currentLocation,
+          viewOnly: true, // ✅ dari home, titik tidak bisa diubah
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -384,7 +398,6 @@ class _HomeViewState extends State<HomeView> {
           ],
         ),
         const SizedBox(height: 12),
-        // Weather card
         _isLoadingWeather
             ? Container(
                 width: double.infinity,
@@ -554,6 +567,7 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
+  // ✅ Map section dengan GestureDetector dan InteractiveFlag.none
   Widget _buildMapSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -567,61 +581,106 @@ class _HomeViewState extends State<HomeView> {
           ),
         ),
         const SizedBox(height: 10),
-        Container(
-          height: 200,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: _navy.withOpacity(0.1),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: FlutterMap(
-              mapController: _homeMapController,
-              options: MapOptions(
-                initialCenter: _currentLocation,
-                initialZoom: 15,
-              ),
-              children: [
-                TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.solotrek.app',
-                ),
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: _currentLocation,
-                      width: 44,
-                      height: 44,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: _navy,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
-                          boxShadow: [
-                            BoxShadow(
-                              color: _navy.withOpacity(0.4),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.location_on,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ],
+        GestureDetector(
+          onTap: _openMapPicker, // ✅ tap buka MapPickerScreen
+          child: Container(
+            height: 200,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: _navy.withOpacity(0.1),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
                 ),
               ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Stack(
+                children: [
+                  FlutterMap(
+                    mapController: _homeMapController,
+                    options: MapOptions(
+                      initialCenter: _currentLocation,
+                      initialZoom: 15,
+                      // ✅ Nonaktifkan semua gesture agar GestureDetector bisa menangkap tap
+                      interactionOptions: const InteractionOptions(
+                        flags: InteractiveFlag.none,
+                      ),
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate:
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.solotrek.app',
+                      ),
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: _currentLocation,
+                            width: 44,
+                            height: 44,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: _navy,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: _navy.withOpacity(0.4),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.location_on,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  // ✅ Overlay label "Buka Peta"
+                  Positioned(
+                    bottom: 10,
+                    right: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _navy.withOpacity(0.75),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.open_in_full_rounded,
+                            size: 12,
+                            color: Colors.white,
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'Buka Peta',
+                            style: TextStyle(color: Colors.white, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -633,7 +692,6 @@ class _HomeViewState extends State<HomeView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Search bar
         Container(
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
@@ -675,8 +733,6 @@ class _HomeViewState extends State<HomeView> {
             ),
           ),
         ),
-
-        // Header
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -710,7 +766,6 @@ class _HomeViewState extends State<HomeView> {
           ],
         ),
         const SizedBox(height: 12),
-
         _filteredPlans.isEmpty
             ? Center(
                 child: Padding(
