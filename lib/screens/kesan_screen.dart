@@ -237,7 +237,7 @@ class _KesanScreenState extends State<KesanScreen> {
                           _inputField(
                             controller: _kesanController,
                             hint:
-                                'Ceritakan pengalamanmu menggunakan SoloTrek...',
+                                'Ceritakan pengalamanmu di mata kuliah TPM...',
                           ),
                           const SizedBox(height: 20),
 
@@ -246,7 +246,7 @@ class _KesanScreenState extends State<KesanScreen> {
                           const SizedBox(height: 8),
                           _inputField(
                             controller: _saranController,
-                            hint: 'Bagikan saran untuk perbaikan aplikasi...',
+                            hint: 'Bagikan saran untuk mata kuliah TPM...',
                           ),
                           const SizedBox(height: 24),
 

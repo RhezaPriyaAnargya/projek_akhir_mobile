@@ -1,9 +1,37 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'package:dropdown_search/dropdown_search.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest.dart' as tz_data;
 import '../../helpers/app_colors.dart';
-import '../../helpers/exchange_rate_model.dart';
-import '../../helpers/exchange_rate_service.dart';
+
+/// Service untuk mata uang (Frankfurter API)
+class CurrencyService {
+  static const _baseUrl = 'https://api.frankfurter.app';
+
+  static Future<Map<String, String>> getCurrencies() async {
+    final res = await http.get(Uri.parse('$_baseUrl/currencies'));
+    if (res.statusCode == 200) {
+      final data = json.decode(res.body);
+      return Map<String, String>.from(data);
+    } else {
+      throw Exception('Failed to load currencies');
+    }
+  }
+
+  static Future<Map<String, double>> getRates(String base) async {
+    final res = await http.get(Uri.parse('$_baseUrl/latest?from=$base'));
+    if (res.statusCode == 200) {
+      final data = json.decode(res.body);
+      return Map<String, double>.from(data['rates']);
+    } else {
+      throw Exception('Failed to load rates');
+    }
+  }
+}
 
 class ConverterTab extends StatefulWidget {
   const ConverterTab({super.key});
@@ -14,31 +42,62 @@ class ConverterTab extends StatefulWidget {
 
 class _ConverterTabState extends State<ConverterTab> {
   final _ctrl = TextEditingController();
-  ExchangeRates? _rates;
-  bool _loading = true, _error = false;
-  double _idr = 0;
+
+  // -- Mata Uang --
+  List<MapEntry<String, String>> _currencies = [];
+  String? _sourceCurrency;
+  String? _targetCurrency; // mata uang tujuan (hanya satu)
+  Map<String, double> _rates = {};
+  bool _loadingCurrencies = true;
+  bool _loadingRates = false;
+  bool _error = false;
+  double _amount = 0;
+
+  // -- Zona Waktu --
+  List<String> _selectedTimezones = ['UTC'];
+  List<String> _allTimezones = [];
 
   late Timer _timer;
   late DateTime _utc;
 
-  static const _offsets = {'WIB': 7, 'WITA': 8, 'WIT': 9, 'London': 0};
-  static const _zoneLabel = {
-    'WIB': 'Waktu Indonesia Barat',
-    'WITA': 'Waktu Indonesia Tengah',
-    'WIT': 'Waktu Indonesia Timur',
-    'London': 'Greenwich Mean Time',
-  };
-  static const _zoneFlag = {
-    'WIB': '🌴',
-    'WITA': '🏝️',
-    'WIT': '🌊',
-    'London': '🇬🇧',
-  };
-  static const _zoneColor = {
-    'WIB': AppColors.success,
-    'WITA': AppColors.primary,
-    'WIT': AppColors.warning,
-    'London': AppColors.danger,
+  // Mapping bendera
+  static const Map<String, String> _currencyFlag = {
+    'USD': '🇺🇸',
+    'EUR': '🇵🇹',
+    'JPY': '🇯🇵',
+    'GBP': '🇬🇧',
+    'AUD': '🇦🇺',
+    'CAD': '🇨🇦',
+    'CHF': '🇨🇮',
+    'CNY': '🇨🇳',
+    'SGD': '🇸🇬',
+    'MYR': '🇲🇾',
+    'SAR': '🇸🇦',
+    'AED': '🇦🇪',
+    'KRW': '🇰🇷',
+    'INR': '🇮🇳',
+    'IDR': '🇮🇩',
+    'THB': '🇹🇭',
+    'PHP': '🇵🇭',
+    'VND': '🇻🇳',
+    'BRL': '🇧🇷',
+    'MXN': '🇲🇽',
+    'ZAR': '🇿🇦',
+    'RUB': '🇷🇺',
+    'TRY': '🇹🇷',
+    'NGN': '🇳🇬',
+    'EGP': '🇪🇬',
+    'HKD': '🇭🇰',
+    'NZD': '🇳🇿',
+    'SEK': '🇸🇪',
+    'NOK': '🇳🇴',
+    'DKK': '🇩🇰',
+    'PLN': '🇵🇱',
+    'CZK': '🇨🇿',
+    'HUF': '🇭🇺',
+    'RON': '🇷🇴',
+    'BGN': '🇧🇬',
+    'HRK': '🇭🇷',
   };
 
   @override
@@ -49,10 +108,13 @@ class _ConverterTabState extends State<ConverterTab> {
       const Duration(seconds: 1),
       (_) => setState(() => _utc = DateTime.now().toUtc()),
     );
-    _loadRates();
+    tz_data.initializeTimeZones();
+    _allTimezones = tz.timeZoneDatabase.locations.keys.toList()..sort();
+    _loadCurrencies();
+
     _ctrl.addListener(() {
-      final t = _ctrl.text.replaceAll(RegExp(r'[^0-9]'), '');
-      setState(() => _idr = double.tryParse(t) ?? 0);
+      final t = _ctrl.text.replaceAll(RegExp(r'[^0-9.]'), '');
+      setState(() => _amount = double.tryParse(t) ?? 0);
     });
   }
 
@@ -63,29 +125,72 @@ class _ConverterTabState extends State<ConverterTab> {
     super.dispose();
   }
 
-  Future<void> _loadRates() async {
+  Future<void> _loadCurrencies() async {
     setState(() {
-      _loading = true;
+      _loadingCurrencies = true;
       _error = false;
     });
     try {
-      final r = await ExchangeRateService.getRates();
-      setState(() {
-        _rates = r;
-        _loading = false;
-      });
+      final map = await CurrencyService.getCurrencies();
+      _currencies = map.entries.toList()
+        ..sort((a, b) => a.key.compareTo(b.key));
+      if (_currencies.any((e) => e.key == 'IDR')) {
+        _sourceCurrency = 'IDR';
+        _loadRates('IDR');
+      }
+      setState(() => _loadingCurrencies = false);
     } catch (_) {
       setState(() {
         _error = true;
-        _loading = false;
+        _loadingCurrencies = false;
       });
     }
   }
 
-  String _fmt(double v, int d) =>
-      v == 0 ? '0' : (v >= 1 ? v.toStringAsFixed(d) : v.toStringAsFixed(4));
+  Future<void> _loadRates(String base) async {
+    setState(() {
+      _loadingRates = true;
+      _error = false;
+    });
+    try {
+      final rates = await CurrencyService.getRates(base);
+      setState(() {
+        _rates = rates;
+        _loadingRates = false;
+      });
+    } catch (_) {
+      setState(() {
+        _error = true;
+        _loadingRates = false;
+      });
+    }
+  }
 
-  DateTime _zt(String z) => _utc.add(Duration(hours: _offsets[z]!));
+  void _onSourceChanged(String? newCurrency) {
+    if (newCurrency == null || newCurrency == _sourceCurrency) return;
+    setState(() {
+      _sourceCurrency = newCurrency;
+      _targetCurrency = null; // reset target saat sumber berubah
+      _amount = 0;
+    });
+    _ctrl.clear();
+    _loadRates(newCurrency);
+  }
+
+  void _onTargetChanged(String? newTarget) {
+    if (newTarget == null) return;
+    setState(() => _targetCurrency = newTarget);
+  }
+
+  String _getFlag(String code) => _currencyFlag[code] ?? '🏳️';
+  String _fmt(double v, int d) => v == 0
+      ? '0'
+      : (v >= 1 ? v.toStringAsFixed(d) : v.toStringAsFixed(d > 4 ? d : 4));
+
+  DateTime _localTime(String iana) {
+    final loc = tz.getLocation(iana);
+    return tz.TZDateTime.from(_utc, loc);
+  }
 
   String _fmtTime(DateTime dt) =>
       '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}:${dt.second.toString().padLeft(2, '0')}';
@@ -116,6 +221,7 @@ class _ConverterTabState extends State<ConverterTab> {
     return 'Malam 🌙';
   }
 
+  // ================= UI ===================
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -126,74 +232,166 @@ class _ConverterTabState extends State<ConverterTab> {
           'Konversi Mata Uang',
           AppColors.primary,
         ),
-        const SizedBox(height: 10),
-        _inputCard(),
-        const SizedBox(height: 10),
-        if (_loading) _loadingCard(),
-        if (_error) _errorCard(),
-        if (_rates != null && !_loading) ...[
-          _rateUpdated(),
-          const SizedBox(height: 8),
-          _resultCard(
-            '🇺🇸',
-            'USD',
-            'Dolar Amerika',
-            _rates!.usd,
-            _idr * _rates!.usd,
-            AppColors.success,
-            AppColors.successLight,
+        const SizedBox(height: 12),
+
+        if (_loadingCurrencies)
+          _loadingCard('Memuat daftar mata uang...')
+        else if (_error && _currencies.isEmpty)
+          _errorCard()
+        else ...[
+          // Dropdown SUMBER
+          DropdownSearch<String>(
+            popupProps: PopupProps.menu(
+              showSearchBox: true,
+              searchFieldProps: TextFieldProps(
+                decoration: InputDecoration(
+                  hintText: 'Cari mata uang...',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            items: _currencies.map((e) => '${e.key} - ${e.value}').toList(),
+            onChanged: (value) {
+              final code = value?.split(' - ').first;
+              _onSourceChanged(code);
+            },
+            selectedItem: _sourceCurrency != null
+                ? '$_sourceCurrency - ${_currencies.firstWhere((e) => e.key == _sourceCurrency).value}'
+                : null,
+            dropdownDecoratorProps: DropDownDecoratorProps(
+              dropdownSearchDecoration: InputDecoration(
+                labelText: 'Mata Uang Sumber',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
           ),
-          const SizedBox(height: 8),
-          _resultCard(
-            '🇪🇺',
-            'EUR',
-            'Euro',
-            _rates!.eur,
-            _idr * _rates!.eur,
-            AppColors.primary,
-            AppColors.primaryLight,
-          ),
-          const SizedBox(height: 8),
-          _resultCard(
-            '🇯🇵',
-            'JPY',
-            'Yen Jepang',
-            _rates!.jpy,
-            _idr * _rates!.jpy,
-            AppColors.danger,
-            AppColors.dangerLight,
-          ),
-          const SizedBox(height: 8),
-          _resultCard(
-            '🇸🇬',
-            'SGD',
-            'Dolar Singapura',
-            _rates!.sgd,
-            _idr * _rates!.sgd,
-            AppColors.warning,
-            AppColors.warningLight,
-          ),
+          const SizedBox(height: 12),
+
+          // Input nominal (muncul setelah sumber dipilih)
+          if (_sourceCurrency != null) _inputCard(),
+          if (_loadingRates) _loadingCard('Mengambil kurs terkini...'),
+          if (_error && _sourceCurrency != null) _errorCard(),
+
+          // Dropdown TUJUAN (hanya jika rates sudah siap dan bukan loading)
+          if (!_loadingRates &&
+              _rates.isNotEmpty &&
+              _sourceCurrency != null) ...[
+            const SizedBox(height: 12),
+            DropdownSearch<String>(
+              popupProps: PopupProps.menu(
+                showSearchBox: true,
+                searchFieldProps: TextFieldProps(
+                  decoration: InputDecoration(
+                    hintText: 'Cari mata uang tujuan...',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+              // Tampilkan semua kode dari _rates kecuali sumber
+              items: _rates.keys.where((k) => k != _sourceCurrency).toList()
+                ..sort(),
+              itemAsString: (code) =>
+                  '$code - ${_currencies.firstWhere((e) => e.key == code, orElse: () => MapEntry(code, code)).value}',
+              onChanged: _onTargetChanged,
+              selectedItem: _targetCurrency,
+              dropdownDecoratorProps: DropDownDecoratorProps(
+                dropdownSearchDecoration: InputDecoration(
+                  labelText: 'Mata Uang Tujuan',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+          ],
+
+          // Hasil konversi (hanya jika target sudah dipilih)
+          if (_targetCurrency != null &&
+              _amount > 0 &&
+              _rates.containsKey(_targetCurrency)) ...[
+            const SizedBox(height: 16),
+            _resultCard(
+              _targetCurrency!,
+              _currencies
+                  .firstWhere(
+                    (e) => e.key == _targetCurrency,
+                    orElse: () => MapEntry(_targetCurrency!, _targetCurrency!),
+                  )
+                  .value,
+              _rates[_targetCurrency]!,
+            ),
+          ],
         ],
+
         const SizedBox(height: 24),
+
+        // -- Zona waktu (tidak berubah) --
         _secHeader(
           Icons.access_time_filled,
           'Zona Waktu Real-time',
           AppColors.accent,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
+        DropdownSearch<String>(
+          popupProps: PopupProps.menu(
+            showSearchBox: true,
+            searchFieldProps: TextFieldProps(
+              decoration: InputDecoration(
+                hintText: 'Cari kota atau zona...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            itemBuilder: (context, item, isSelected) {
+              return ListTile(
+                title: Text(
+                  item.replaceAll('_', ' ').split('/').last,
+                  style: const TextStyle(fontSize: 14),
+                ),
+                subtitle: Text(item, style: const TextStyle(fontSize: 11)),
+              );
+            },
+          ),
+          items: _allTimezones,
+          onChanged: (tz) {
+            if (tz != null && !_selectedTimezones.contains(tz)) {
+              setState(() => _selectedTimezones.add(tz));
+            }
+          },
+          dropdownDecoratorProps: DropDownDecoratorProps(
+            dropdownSearchDecoration: InputDecoration(
+              labelText: 'Tambah Zona Waktu',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+          clearButtonProps: const ClearButtonProps(isVisible: true),
+        ),
+        const SizedBox(height: 12),
         _utcCard(),
         const SizedBox(height: 8),
-        ..._offsets.keys.map(
-          (z) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: _zoneCard(z),
-          ),
-        ),
+        ..._selectedTimezones
+            .where((tz) => tz != 'UTC')
+            .map(
+              (tz) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _zoneCard(tz),
+              ),
+            ),
         const SizedBox(height: 16),
       ],
     );
   }
 
+  // ========= WIDGET PEMBANTU =========
   Widget _secHeader(IconData icon, String title, Color color) => Row(
     children: [
       Container(
@@ -216,201 +414,197 @@ class _ConverterTabState extends State<ConverterTab> {
     ],
   );
 
-  Widget _inputCard() => _card(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Row(
-          children: [
-            Text('🇮🇩', style: TextStyle(fontSize: 18)),
-            SizedBox(width: 6),
-            Text(
-              'Rupiah Indonesia (IDR)',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            const Text(
-              'Rp',
-              style: TextStyle(
-                color: AppColors.primary,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: TextField(
-                controller: _ctrl,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                ),
-                decoration: const InputDecoration(
-                  hintText: '0',
-                  hintStyle: TextStyle(
-                    color: AppColors.border,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-            ),
-            if (_ctrl.text.isNotEmpty)
-              GestureDetector(
-                onTap: () {
-                  _ctrl.clear();
-                  setState(() => _idr = 0);
-                },
-                child: const Icon(
-                  Icons.cancel,
-                  color: AppColors.textSecondary,
-                  size: 20,
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 6,
-          children: [50000, 100000, 500000, 1000000].map((a) {
-            return GestureDetector(
-              onTap: () {
-                _ctrl.text = a.toString();
-                setState(() => _idr = a.toDouble());
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryLight,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-                ),
-                child: Text(
-                  a >= 1000000
-                      ? '${(a / 1000000).toStringAsFixed(0)}jt'
-                      : '${(a / 1000).toStringAsFixed(0)}rb',
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ],
-    ),
-  );
-
-  Widget _resultCard(
-    String flag,
-    String currency,
-    String name,
-    double rate,
-    double result,
-    Color color,
-    Color bg,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withOpacity(0.2)),
-      ),
-      child: Row(
+  Widget _inputCard() {
+    final sourceName = _currencies
+        .firstWhere(
+          (e) => e.key == _sourceCurrency,
+          orElse: () => MapEntry(_sourceCurrency!, _sourceCurrency!),
+        )
+        .value;
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: color.withOpacity(0.15),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Center(
-              child: Text(flag, style: const TextStyle(fontSize: 20)),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 11,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '1 IDR = ${_fmt(rate, 6)} $currency',
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          Row(
             children: [
               Text(
-                currency,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
+                _getFlag(_sourceCurrency!),
+                style: const TextStyle(fontSize: 18),
               ),
+              const SizedBox(width: 6),
               Text(
-                _idr == 0 ? '--' : _fmt(result, currency == 'JPY' ? 0 : 2),
+                '$sourceName (${_sourceCurrency!})',
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Text(
+                _sourceCurrency!,
+                style: const TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _ctrl,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
+                  ],
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  decoration: const InputDecoration(
+                    hintText: '0',
+                    hintStyle: TextStyle(
+                      color: AppColors.border,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+              if (_ctrl.text.isNotEmpty)
+                GestureDetector(
+                  onTap: () {
+                    _ctrl.clear();
+                    setState(() => _amount = 0);
+                  },
+                  child: const Icon(
+                    Icons.cancel,
+                    color: AppColors.textSecondary,
+                    size: 20,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            children: [50000, 100000, 500000, 1000000].map((a) {
+              return GestureDetector(
+                onTap: () {
+                  _ctrl.text = a.toString();
+                  setState(() => _amount = a.toDouble());
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryLight,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: AppColors.primary.withOpacity(0.3),
+                    ),
+                  ),
+                  child: Text(
+                    a >= 1000000
+                        ? '${(a / 1000000).toStringAsFixed(0)}jt'
+                        : '${(a / 1000).toStringAsFixed(0)}rb',
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
           ),
         ],
       ),
     );
   }
 
-  Widget _loadingCard() => _card(
-    child: const Row(
+  Widget _resultCard(String currencyCode, String currencyName, double rate) {
+    final result = _amount * rate;
+    final flag = _getFlag(currencyCode);
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppColors.primary, AppColors.accent],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                _getFlag(_sourceCurrency!),
+                style: const TextStyle(fontSize: 28),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: Icon(
+                  Icons.arrow_forward,
+                  color: Colors.white70,
+                  size: 24,
+                ),
+              ),
+              Text(flag, style: const TextStyle(fontSize: 28)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '${_fmt(_amount, 2)} $_sourceCurrency =',
+            style: const TextStyle(color: Colors.white70, fontSize: 14),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${_fmt(result, currencyCode == 'JPY' ? 0 : 2)} $currencyCode',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 30,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '1 $_sourceCurrency = ${_fmt(rate, 6)} $currencyCode',
+            style: const TextStyle(color: Colors.white60, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _loadingCard([String msg = 'Memuat...']) => _card(
+    child: Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        SizedBox(
+        const SizedBox(
           width: 16,
           height: 16,
           child: CircularProgressIndicator(
@@ -418,10 +612,10 @@ class _ConverterTabState extends State<ConverterTab> {
             color: AppColors.primary,
           ),
         ),
-        SizedBox(width: 10),
+        const SizedBox(width: 10),
         Text(
-          'Mengambil kurs terkini...',
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          msg,
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
         ),
       ],
     ),
@@ -440,12 +634,18 @@ class _ConverterTabState extends State<ConverterTab> {
         const SizedBox(width: 8),
         const Expanded(
           child: Text(
-            'Gagal memuat kurs. Menampilkan estimasi.',
+            'Gagal memuat data. Periksa koneksi Anda.',
             style: TextStyle(color: AppColors.danger, fontSize: 12),
           ),
         ),
         TextButton(
-          onPressed: _loadRates,
+          onPressed: () {
+            if (_sourceCurrency != null) {
+              _loadRates(_sourceCurrency!);
+            } else {
+              _loadCurrencies();
+            }
+          },
           style: TextButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 8),
           ),
@@ -463,12 +663,12 @@ class _ConverterTabState extends State<ConverterTab> {
       const Icon(Icons.check_circle, color: AppColors.success, size: 13),
       const SizedBox(width: 4),
       Text(
-        'Update: ${_rates!.updatedAt.hour.toString().padLeft(2, '0')}:${_rates!.updatedAt.minute.toString().padLeft(2, '0')}',
+        'Update: ${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')}',
         style: const TextStyle(color: AppColors.success, fontSize: 11),
       ),
       const Spacer(),
       GestureDetector(
-        onTap: _loadRates,
+        onTap: () => _loadRates(_sourceCurrency!),
         child: const Text(
           'Refresh',
           style: TextStyle(
@@ -486,8 +686,6 @@ class _ConverterTabState extends State<ConverterTab> {
     padding: const EdgeInsets.all(18),
     decoration: BoxDecoration(
       gradient: const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
         colors: [AppColors.primary, AppColors.accent],
       ),
       borderRadius: BorderRadius.circular(16),
@@ -522,10 +720,22 @@ class _ConverterTabState extends State<ConverterTab> {
     ),
   );
 
-  Widget _zoneCard(String zone) {
-    final zt = _zt(zone);
-    final color = _zoneColor[zone]!;
-    final offset = _offsets[zone]!;
+  Widget _zoneCard(String iana) {
+    final location = tz.getLocation(iana);
+    final tzNow = tz.TZDateTime.from(_utc, location);
+    final local = tzNow;
+    final offset = tzNow.timeZoneOffset;
+    final sign = offset.inHours >= 0 ? '+' : '';
+    final hour = offset.inHours.abs().toString().padLeft(2, '0');
+    final min = (offset.inMinutes.abs() % 60).toString().padLeft(2, '0');
+    final offsetStr = 'UTC$sign$hour:$min';
+    final city = iana.split('/').last.replaceAll('_', ' ');
+    String abbr = '';
+    try {
+      abbr = location.currentTimeZone.abbreviation;
+    } catch (_) {
+      abbr = city;
+    }
     return _card(
       child: Row(
         children: [
@@ -533,14 +743,11 @@ class _ConverterTabState extends State<ConverterTab> {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: AppColors.primary.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Center(
-              child: Text(
-                _zoneFlag[zone]!,
-                style: const TextStyle(fontSize: 20),
-              ),
+            child: const Center(
+              child: Icon(Icons.public, color: AppColors.primary),
             ),
           ),
           const SizedBox(width: 12),
@@ -548,46 +755,23 @@ class _ConverterTabState extends State<ConverterTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Text(
-                      zone,
-                      style: TextStyle(
-                        color: color,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        offset >= 0 ? 'UTC+$offset' : 'UTC$offset',
-                        style: TextStyle(
-                          color: color,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
+                Text(
+                  city,
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 Text(
-                  _zoneLabel[zone]!,
+                  '$abbr ($offsetStr)',
                   style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 11,
                   ),
                 ),
                 Text(
-                  _period(zt),
+                  _period(local),
                   style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 11,
@@ -600,7 +784,7 @@ class _ConverterTabState extends State<ConverterTab> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                _fmtTime(zt).substring(0, 5),
+                '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}',
                 style: const TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 22,
@@ -609,15 +793,23 @@ class _ConverterTabState extends State<ConverterTab> {
                 ),
               ),
               Text(
-                ':${_fmtTime(zt).substring(6)}',
+                ':${local.second.toString().padLeft(2, '0')}',
                 style: TextStyle(
-                  color: color,
+                  color: AppColors.primary,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   fontFeatures: [FontFeature.tabularFigures()],
                 ),
               ),
             ],
+          ),
+          IconButton(
+            icon: const Icon(
+              Icons.close,
+              size: 16,
+              color: AppColors.textSecondary,
+            ),
+            onPressed: () => setState(() => _selectedTimezones.remove(iana)),
           ),
         ],
       ),
