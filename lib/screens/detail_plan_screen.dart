@@ -3,6 +3,10 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import '../helpers/database_helper.dart';
 import 'add_plan_screen.dart';
 
+const Color _navy = Color(0xFF1A3557);
+const Color _teal = Color(0xFF2ABFBF);
+const Color _cream = Color(0xFFF5F0E8);
+
 class DetailPlanScreen extends StatefulWidget {
   final Map<String, dynamic> plan;
 
@@ -49,7 +53,7 @@ class _DetailPlanScreenState extends State<DetailPlanScreen>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
           'Hapus Rencana?',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold, color: _navy),
         ),
         content: const Text('Apakah Anda yakin ingin menghapus rencana ini?'),
         actions: [
@@ -60,6 +64,7 @@ class _DetailPlanScreenState extends State<DetailPlanScreen>
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.redAccent,
+              elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -114,14 +119,14 @@ class _DetailPlanScreenState extends State<DetailPlanScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F4FF),
+      backgroundColor: _cream,
       body: CustomScrollView(
         slivers: [
-          // ── Hero App Bar ──────────────────────────────────────────────
+          // ── SliverAppBar ──────────────────────────────────────────
           SliverAppBar(
             expandedHeight: 220,
             pinned: true,
-            backgroundColor: Colors.blueAccent,
+            backgroundColor: _navy,
             foregroundColor: Colors.white,
             elevation: 0,
             actions: [
@@ -141,26 +146,24 @@ class _DetailPlanScreenState extends State<DetailPlanScreen>
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Gradient background
                   Container(
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Color(0xFF1565C0), Color(0xFF42A5F5)],
+                        colors: [_navy, Color(0xFF254878)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                     ),
                   ),
-                  // Decorative circles
                   Positioned(
                     top: -30,
                     right: -30,
                     child: Container(
-                      width: 150,
-                      height: 150,
+                      width: 160,
+                      height: 160,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.white.withOpacity(0.08),
+                        color: _teal.withOpacity(0.15),
                       ),
                     ),
                   ),
@@ -172,11 +175,10 @@ class _DetailPlanScreenState extends State<DetailPlanScreen>
                       height: 100,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.white.withOpacity(0.06),
+                        color: Colors.white.withOpacity(0.05),
                       ),
                     ),
                   ),
-                  // Content
                   Positioned(
                     bottom: 24,
                     left: 20,
@@ -191,7 +193,7 @@ class _DetailPlanScreenState extends State<DetailPlanScreen>
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
+                            color: _teal.withOpacity(0.25),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: const Row(
@@ -200,14 +202,14 @@ class _DetailPlanScreenState extends State<DetailPlanScreen>
                               Icon(
                                 Icons.flight_takeoff_rounded,
                                 color: Colors.white,
-                                size: 14,
+                                size: 13,
                               ),
                               SizedBox(width: 4),
                               Text(
                                 'Rencana Perjalanan',
                                 style: TextStyle(
                                   color: Colors.white70,
-                                  fontSize: 12,
+                                  fontSize: 11,
                                 ),
                               ),
                             ],
@@ -218,7 +220,7 @@ class _DetailPlanScreenState extends State<DetailPlanScreen>
                           _plan['title'] ?? '',
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 24,
+                            fontSize: 22,
                             fontWeight: FontWeight.bold,
                             letterSpacing: -0.3,
                           ),
@@ -231,7 +233,7 @@ class _DetailPlanScreenState extends State<DetailPlanScreen>
                             const Icon(
                               Icons.location_on_rounded,
                               color: Colors.white70,
-                              size: 14,
+                              size: 13,
                             ),
                             const SizedBox(width: 4),
                             Expanded(
@@ -239,7 +241,7 @@ class _DetailPlanScreenState extends State<DetailPlanScreen>
                                 _plan['location'] ?? '',
                                 style: const TextStyle(
                                   color: Colors.white70,
-                                  fontSize: 13,
+                                  fontSize: 12,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -255,7 +257,7 @@ class _DetailPlanScreenState extends State<DetailPlanScreen>
             ),
           ),
 
-          // ── Body Content ─────────────────────────────────────────────
+          // ── Body ─────────────────────────────────────────────────
           SliverToBoxAdapter(
             child: FadeTransition(
               opacity: _fadeAnim,
@@ -268,47 +270,44 @@ class _DetailPlanScreenState extends State<DetailPlanScreen>
                     children: [
                       const SizedBox(height: 4),
 
-                      // ── Info Cards ────────────────────────────
                       _InfoCard(
                         icon: Icons.calendar_today_rounded,
                         label: 'Tanggal',
                         value: _plan['date'] ?? '-',
                         color: Colors.orange,
-                        horizontal: true,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
                       _InfoCard(
                         icon: Icons.location_on_rounded,
                         label: 'Lokasi',
                         value: _plan['location'] ?? '-',
-                        color: Colors.blueAccent,
-                        horizontal: true,
+                        color: _teal,
                       ),
                       const SizedBox(height: 20),
 
-                      // ── Detail Section ────────────────────────────
                       Row(
                         children: [
                           Container(
                             width: 4,
-                            height: 20,
+                            height: 18,
                             decoration: BoxDecoration(
-                              color: Colors.blueAccent,
+                              color: _teal,
                               borderRadius: BorderRadius.circular(2),
                             ),
                           ),
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 8),
                           const Text(
                             'Detail Perjalanan',
                             style: TextStyle(
-                              fontSize: 17,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF1A237E),
+                              color: _navy,
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 12),
+
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(20),
@@ -317,7 +316,7 @@ class _DetailPlanScreenState extends State<DetailPlanScreen>
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.blueAccent.withOpacity(0.08),
+                              color: _navy.withOpacity(0.07),
                               blurRadius: 16,
                               offset: const Offset(0, 4),
                             ),
@@ -333,17 +332,17 @@ class _DetailPlanScreenState extends State<DetailPlanScreen>
                                   h1: const TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.blueAccent,
+                                    color: _navy,
                                   ),
                                   h2: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.blueAccent,
+                                    color: _navy,
                                   ),
-                                  h3: const TextStyle(
+                                  h3: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF1565C0),
+                                    color: _navy.withOpacity(0.8),
                                   ),
                                   p: const TextStyle(
                                     fontSize: 14,
@@ -363,23 +362,20 @@ class _DetailPlanScreenState extends State<DetailPlanScreen>
                                     color: Colors.black87,
                                   ),
                                   code: TextStyle(
-                                    backgroundColor: Colors.blue.shade50,
+                                    backgroundColor: _teal.withOpacity(0.08),
                                     fontFamily: 'monospace',
                                     fontSize: 12,
-                                    color: Colors.blueAccent,
+                                    color: _teal,
                                   ),
                                   blockquote: TextStyle(
                                     color: Colors.grey.shade600,
                                     fontStyle: FontStyle.italic,
                                   ),
                                   blockquoteDecoration: BoxDecoration(
-                                    color: Colors.blue.shade50,
+                                    color: _teal.withOpacity(0.06),
                                     borderRadius: BorderRadius.circular(8),
-                                    border: const Border(
-                                      left: BorderSide(
-                                        color: Colors.blueAccent,
-                                        width: 3,
-                                      ),
+                                    border: Border(
+                                      left: BorderSide(color: _teal, width: 3),
                                     ),
                                   ),
                                 ),
@@ -412,14 +408,14 @@ class _DetailPlanScreenState extends State<DetailPlanScreen>
         ],
       ),
 
-      // ── Bottom Action Buttons ─────────────────────────────────────────
+      // ── Bottom Bar ────────────────────────────────────────────────
       bottomNavigationBar: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
+              color: _navy.withOpacity(0.08),
               blurRadius: 10,
               offset: const Offset(0, -4),
             ),
@@ -467,7 +463,7 @@ class _DetailPlanScreenState extends State<DetailPlanScreen>
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
+                    backgroundColor: _navy,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -484,21 +480,19 @@ class _DetailPlanScreenState extends State<DetailPlanScreen>
   }
 }
 
-// ── Info Card Widget ──────────────────────────────────────────────────────────
+// ── Info Card ─────────────────────────────────────────────────────────────────
 
 class _InfoCard extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
   final Color color;
-  final bool horizontal;
 
   const _InfoCard({
     required this.icon,
     required this.label,
     required this.value,
     required this.color,
-    this.horizontal = false,
   });
 
   @override
@@ -508,12 +502,12 @@ class _InfoCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(0.1),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: _navy.withOpacity(0.07),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -546,7 +540,7 @@ class _InfoCard extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF1A237E),
+                    color: _navy,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
