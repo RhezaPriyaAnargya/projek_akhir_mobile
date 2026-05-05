@@ -58,6 +58,7 @@ dependencies:
   dropdown_search: ^5.0.6
   image_cropper: 12.2.1
   url_launcher: ^6.2.5
+  flag: ^7.0.0
 
 dev_dependencies:
   flutter_launcher_icons: ^0.13.1
