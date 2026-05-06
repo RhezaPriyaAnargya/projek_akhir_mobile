@@ -1,10 +1,15 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:pedometer/pedometer.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:google_mlkit_language_id/google_mlkit_language_id.dart';
+import 'package:google_mlkit_translation/google_mlkit_translation.dart';
 import '../../helpers/app_colors.dart';
 import '../../helpers/compass_painter.dart';
 
@@ -36,6 +41,60 @@ class _TravelToolsTabState extends State<TravelToolsTab>
   static const double _mekkahLat = 21.4225;
   static const double _mekkahLng = 39.8262;
 
+  // ── ML Kit Translator ──
+  File? _pickedImage;
+  String _ocrText = '';
+  String _detectedLang = '';
+  String _detectedLangName = '';
+  String _translatedText = '';
+  bool _isProcessing = false;
+  bool _isDownloadingModel = false;
+  String _mlStatus = '';
+  final ImagePicker _imagePicker = ImagePicker();
+
+  // Map kode bahasa → nama bahasa
+  static const Map<String, String> _langNames = {
+    'en': 'Inggris 🇬🇧',
+    'ja': 'Jepang 🇯🇵',
+    'ko': 'Korea 🇰🇷',
+    'zh': 'Mandarin 🇨🇳',
+    'ar': 'Arab 🇸🇦',
+    'fr': 'Prancis 🇫🇷',
+    'de': 'Jerman 🇩🇪',
+    'es': 'Spanyol 🇪🇸',
+    'it': 'Italia 🇮🇹',
+    'pt': 'Portugis 🇵🇹',
+    'ru': 'Rusia 🇷🇺',
+    'th': 'Thailand 🇹🇭',
+    'vi': 'Vietnam 🇻🇳',
+    'ms': 'Melayu 🇲🇾',
+    'id': 'Indonesia 🇮🇩',
+    'hi': 'Hindi 🇮🇳',
+    'tr': 'Turki 🇹🇷',
+    'nl': 'Belanda 🇳🇱',
+  };
+
+  // Map kode bahasa ML Kit Language ID → TranslateLanguage
+  static const Map<String, TranslateLanguage> _langToTranslate = {
+    'en': TranslateLanguage.english,
+    'ja': TranslateLanguage.japanese,
+    'ko': TranslateLanguage.korean,
+    'zh': TranslateLanguage.chinese,
+    'ar': TranslateLanguage.arabic,
+    'fr': TranslateLanguage.french,
+    'de': TranslateLanguage.german,
+    'es': TranslateLanguage.spanish,
+    'it': TranslateLanguage.italian,
+    'pt': TranslateLanguage.portuguese,
+    'ru': TranslateLanguage.russian,
+    'th': TranslateLanguage.thai,
+    'vi': TranslateLanguage.vietnamese,
+    'ms': TranslateLanguage.malay,
+    'hi': TranslateLanguage.hindi,
+    'tr': TranslateLanguage.turkish,
+    'nl': TranslateLanguage.dutch,
+  };
+
   @override
   bool get wantKeepAlive => true;
 
@@ -55,6 +114,7 @@ class _TravelToolsTabState extends State<TravelToolsTab>
     super.dispose();
   }
 
+  // ── Pedometer ──────────────────────────────────────────────────
   void _initPedometer() async {
     final status = await Permission.activityRecognition.request();
     if (!status.isGranted) {
@@ -62,9 +122,7 @@ class _TravelToolsTabState extends State<TravelToolsTab>
       return;
     }
     _stepSub = Pedometer.stepCountStream.listen((e) {
-      if (_initialSteps == 0) {
-        _initialSteps = e.steps;
-      }
+      if (_initialSteps == 0) _initialSteps = e.steps;
       setState(() => _steps = e.steps - _initialSteps);
     });
     _statusSub = Pedometer.pedestrianStatusStream.listen(
@@ -73,6 +131,7 @@ class _TravelToolsTabState extends State<TravelToolsTab>
     );
   }
 
+  // ── Kompas ─────────────────────────────────────────────────────
   void _initCompass() {
     _magSub = magnetometerEventStream().listen((e) {
       double angle = math.atan2(e.x, e.y) * (180 / math.pi);
@@ -132,6 +191,130 @@ class _TravelToolsTabState extends State<TravelToolsTab>
   double get _calories => _steps * _calPerStep;
   double get _needleAngle => (_qiblaAngle - _heading) * math.pi / 180;
 
+  // ── ML Kit: Ambil foto & proses ────────────────────────────────
+  Future<void> _pickAndProcess(ImageSource source) async {
+    try {
+      final picked = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 85,
+      );
+      if (picked == null) return;
+
+      setState(() {
+        _pickedImage = File(picked.path);
+        _ocrText = '';
+        _detectedLang = '';
+        _detectedLangName = '';
+        _translatedText = '';
+        _isProcessing = true;
+        _mlStatus = '🔍 Membaca teks dari foto...';
+      });
+
+      // Step 1: OCR
+      final inputImage = InputImage.fromFile(_pickedImage!);
+      final textRecognizer = TextRecognizer(
+        script: TextRecognitionScript.latin,
+      );
+      final recognized = await textRecognizer.processImage(inputImage);
+      await textRecognizer.close();
+
+      final rawText = recognized.text.trim();
+
+      if (rawText.isEmpty) {
+        setState(() {
+          _isProcessing = false;
+          _mlStatus = '⚠️ Tidak ada teks yang terdeteksi di foto ini';
+          _ocrText = '';
+        });
+        return;
+      }
+
+      setState(() {
+        _ocrText = rawText;
+        _mlStatus = '🌐 Mendeteksi bahasa...';
+      });
+
+      // Step 2: Deteksi Bahasa
+      final languageIdentifier = LanguageIdentifier(confidenceThreshold: 0.5);
+      final langCode = await languageIdentifier.identifyLanguage(rawText);
+      await languageIdentifier.close();
+
+      final langName =
+          _langNames[langCode] ?? 'Bahasa tidak dikenal ($langCode)';
+
+      setState(() {
+        _detectedLang = langCode;
+        _detectedLangName = langName;
+        _mlStatus = '📥 Menyiapkan model terjemahan...';
+        _isDownloadingModel = true;
+      });
+
+      // Step 3: Translate ke Indonesia
+      if (langCode == 'id' || langCode == 'und') {
+        setState(() {
+          _translatedText = langCode == 'id'
+              ? '(Teks sudah dalam Bahasa Indonesia)'
+              : '(Bahasa tidak dapat diidentifikasi)';
+          _isProcessing = false;
+          _isDownloadingModel = false;
+          _mlStatus = '✅ Selesai!';
+        });
+        return;
+      }
+
+      final sourceLang =
+          _langToTranslate[langCode] ?? TranslateLanguage.english;
+      final translator = OnDeviceTranslator(
+        sourceLanguage: sourceLang,
+        targetLanguage: TranslateLanguage.indonesian,
+      );
+
+      // Download model kalau belum ada
+      final modelManager = OnDeviceTranslatorModelManager();
+      final isDownloaded = await modelManager.isModelDownloaded(
+        sourceLang.bcpCode,
+      );
+      if (!isDownloaded) {
+        setState(() => _mlStatus = '📥 Mengunduh model bahasa $langName...');
+        await modelManager.downloadModel(sourceLang.bcpCode);
+      }
+
+      setState(() {
+        _isDownloadingModel = false;
+        _mlStatus = '✍️ Menerjemahkan...';
+      });
+
+      final translated = await translator.translateText(rawText);
+      await translator.close();
+
+      setState(() {
+        _translatedText = translated;
+        _isProcessing = false;
+        _mlStatus = '✅ Selesai!';
+      });
+    } catch (e) {
+      setState(() {
+        _isProcessing = false;
+        _isDownloadingModel = false;
+        _mlStatus = '❌ Error: $e';
+      });
+    }
+  }
+
+  void _resetTranslator() {
+    setState(() {
+      _pickedImage = null;
+      _ocrText = '';
+      _detectedLang = '';
+      _detectedLangName = '';
+      _translatedText = '';
+      _isProcessing = false;
+      _isDownloadingModel = false;
+      _mlStatus = '';
+    });
+  }
+
+  // ── Build ──────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -149,11 +332,293 @@ class _TravelToolsTabState extends State<TravelToolsTab>
         _secHeader(Icons.explore, 'Kompas Arah Kiblat', AppColors.qiblaGold),
         const SizedBox(height: 10),
         _qiblaCard(),
+        const SizedBox(height: 24),
+
+        // ── TAMBAH: ML Translator Section ──────────────────────────
+        _secHeader(
+          Icons.translate_rounded,
+          'Scan & Terjemahkan',
+          AppColors.primary,
+        ),
+        const SizedBox(height: 4),
+        Padding(
+          padding: const EdgeInsets.only(left: 32, bottom: 10),
+          child: Text(
+            'Foto teks asing → deteksi bahasa → terjemah ke Indonesia',
+            style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+          ),
+        ),
+        _translatorCard(),
+
+        // ─────────────────────────────────────────────────────────
         const SizedBox(height: 16),
       ],
     );
   }
 
+  // ── Widget: Translator Card ────────────────────────────────────
+  Widget _translatorCard() {
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Tombol Kamera & Galeri
+          Row(
+            children: [
+              Expanded(
+                child: _actionButton(
+                  icon: Icons.camera_alt_rounded,
+                  label: 'Kamera',
+                  color: AppColors.primary,
+                  onTap: _isProcessing
+                      ? null
+                      : () => _pickAndProcess(ImageSource.camera),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _actionButton(
+                  icon: Icons.photo_library_rounded,
+                  label: 'Galeri',
+                  color: AppColors.success,
+                  onTap: _isProcessing
+                      ? null
+                      : () => _pickAndProcess(ImageSource.gallery),
+                ),
+              ),
+            ],
+          ),
+
+          // Preview Foto
+          if (_pickedImage != null) ...[
+            const SizedBox(height: 14),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.file(
+                _pickedImage!,
+                height: 180,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ],
+
+          // Status Processing
+          if (_mlStatus.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.primary.withOpacity(0.15)),
+              ),
+              child: Row(
+                children: [
+                  if (_isProcessing)
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.primary,
+                      ),
+                    )
+                  else
+                    const SizedBox(width: 14),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _mlStatus,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // Hasil OCR
+          if (_ocrText.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            _resultSection(
+              icon: Icons.document_scanner_rounded,
+              title: 'Teks Terdeteksi',
+              color: Colors.blue.shade600,
+              child: Text(
+                _ocrText,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textPrimary,
+                  height: 1.5,
+                ),
+              ),
+            ),
+          ],
+
+          // Bahasa Terdeteksi
+          if (_detectedLangName.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _resultSection(
+              icon: Icons.language_rounded,
+              title: 'Bahasa Terdeteksi',
+              color: Colors.purple.shade500,
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.purple.shade50,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.purple.shade200),
+                    ),
+                    child: Text(
+                      _detectedLangName,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.purple.shade700,
+                      ),
+                    ),
+                  ),
+                  if (_isDownloadingModel) ...[
+                    const SizedBox(width: 10),
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Mengunduh model...',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+
+          // Hasil Terjemahan
+          if (_translatedText.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _resultSection(
+              icon: Icons.translate_rounded,
+              title: 'Terjemahan (Indonesia)',
+              color: AppColors.success,
+              child: Text(
+                _translatedText,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textPrimary,
+                  height: 1.5,
+                ),
+              ),
+            ),
+          ],
+
+          // Tombol Reset
+          if (_pickedImage != null && !_isProcessing) ...[
+            const SizedBox(height: 14),
+            OutlinedButton.icon(
+              onPressed: _resetTranslator,
+              icon: const Icon(Icons.refresh_rounded, size: 16),
+              label: const Text('Scan Ulang'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.textSecondary,
+                side: const BorderSide(color: AppColors.border),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _actionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.25)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _resultSection({
+    required IconData icon,
+    required String title,
+    required Color color,
+    required Widget child,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 14),
+              const SizedBox(width: 6),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          child,
+        ],
+      ),
+    );
+  }
+
+  // ── Widget Lama (tidak diubah) ──────────────────────────────────
   Widget _secHeader(IconData icon, String title, Color color) => Row(
     children: [
       Container(
