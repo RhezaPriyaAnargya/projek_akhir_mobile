@@ -18,7 +18,7 @@ class TranslationService {
   // Callback untuk update UI
   Function()? onUpdate;
 
-  // Mapping bahasa
+  // ── Mapping bahasa ─────────────────────────────────────────────
   static const Map<String, String> langNames = {
     'en': 'Inggris 🇬🇧',
     'ja': 'Jepang 🇯🇵',
@@ -60,6 +60,41 @@ class TranslationService {
     'nl': TranslateLanguage.dutch,
   };
 
+  // ── Script OCR yang didukung ML Kit ───────────────────────────
+  // Setiap script dicoba satu per satu, ambil hasil terpanjang
+  static const List<TextRecognitionScript> _scripts = [
+    TextRecognitionScript.latin, // EN, ID, FR, DE, ES, dll
+    TextRecognitionScript.japanese, // JA (juga bisa baca Chinese)
+    TextRecognitionScript.korean, // KO
+    TextRecognitionScript.chinese, // ZH
+  ];
+
+  // ── Multi-script OCR ──────────────────────────────────────────
+  // Coba semua script, kembalikan teks terpanjang
+  Future<String> _multiScriptOCR(InputImage inputImage) async {
+    String bestText = '';
+
+    for (final script in _scripts) {
+      try {
+        final recognizer = TextRecognizer(script: script);
+        final result = await recognizer.processImage(inputImage);
+        await recognizer.close();
+
+        final text = result.text.trim();
+        // Ambil hasil yang paling banyak karakternya
+        if (text.length > bestText.length) {
+          bestText = text;
+        }
+      } catch (_) {
+        // Skip script yang error, lanjut ke berikutnya
+        continue;
+      }
+    }
+
+    return bestText;
+  }
+
+  // ── Main Process ──────────────────────────────────────────────
   Future<void> pickAndProcess(ImageSource source) async {
     try {
       final picked = await _imagePicker.pickImage(
@@ -77,15 +112,9 @@ class TranslationService {
       statusMessage = '🔍 Membaca teks dari foto...';
       _notifyUpdate();
 
-      // OCR
+      // ── Step 1: Multi-script OCR ──────────────────────────────
       final inputImage = InputImage.fromFile(pickedImage!);
-      final textRecognizer = TextRecognizer(
-        script: TextRecognitionScript.latin,
-      );
-      final recognized = await textRecognizer.processImage(inputImage);
-      await textRecognizer.close();
-
-      final rawText = recognized.text.trim();
+      final rawText = await _multiScriptOCR(inputImage);
 
       if (rawText.isEmpty) {
         isProcessing = false;
@@ -99,8 +128,8 @@ class TranslationService {
       statusMessage = '🌐 Mendeteksi bahasa...';
       _notifyUpdate();
 
-      // Deteksi bahasa
-      final languageIdentifier = LanguageIdentifier(confidenceThreshold: 0.5);
+      // ── Step 2: Deteksi Bahasa ────────────────────────────────
+      final languageIdentifier = LanguageIdentifier(confidenceThreshold: 0.4);
       final langCode = await languageIdentifier.identifyLanguage(rawText);
       await languageIdentifier.close();
 
@@ -111,6 +140,7 @@ class TranslationService {
       isDownloadingModel = true;
       _notifyUpdate();
 
+      // Kalau sudah Indonesia atau tidak terdeteksi
       if (langCode == 'id' || langCode == 'und') {
         translatedText = langCode == 'id'
             ? '(Teks sudah dalam Bahasa Indonesia)'
@@ -122,12 +152,14 @@ class TranslationService {
         return;
       }
 
+      // ── Step 3: Translate ke Indonesia ───────────────────────
       final sourceLang = langToTranslate[langCode] ?? TranslateLanguage.english;
       final translator = OnDeviceTranslator(
         sourceLanguage: sourceLang,
         targetLanguage: TranslateLanguage.indonesian,
       );
 
+      // Download model kalau belum ada
       final modelManager = OnDeviceTranslatorModelManager();
       final isDownloaded = await modelManager.isModelDownloaded(
         sourceLang.bcpCode,

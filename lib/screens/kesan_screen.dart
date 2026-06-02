@@ -336,7 +336,7 @@ class _KesanScreenState extends State<KesanScreen> {
                             Icon(
                               Icons.inbox_rounded,
                               size: 48,
-                              color: Colors.grey.shade300,
+                              color: Colors.green,
                             ),
                             const SizedBox(height: 8),
                             Text(
